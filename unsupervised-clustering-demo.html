@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finding Structure Without Labels — Unsupervised Learning Demo</title>
+<style>
+  :root{
+    --paper:#F6F1E7;
+    --panel:#FBF8F2;
+    --ink:#1B2430;
+    --ink-soft:#4B5568;
+    --grid:#D8D2C2;
+    --teal:#3E6E75;
+    --teal-soft:#DCE9EA;
+    --amber:#C97F2B;
+    --amber-soft:#F3E1C8;
+    --brick:#B23A2E;
+    --sage:#4F7A5A;
+    --sage-soft:#DCE8DF;
+    --violet:#7A5FA6;
+    --slate:#4B6FA0;
+    --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{ margin:0; background:var(--paper); color:var(--ink); font-family:var(--font-body); line-height:1.5; }
+
+  .wrap{ max-width:1120px; margin:0 auto; padding:32px 20px 64px; }
+
+  header.hero{ border-bottom:1px solid var(--grid); padding-bottom:24px; margin-bottom:28px; }
+
+  .eyebrow{
+    font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em;
+    text-transform:uppercase; color:var(--teal); margin:0 0 10px;
+  }
+
+  h1{
+    font-family:var(--font-display); font-weight:700;
+    font-size:clamp(28px, 4vw, 42px); line-height:1.1; margin:0 0 12px;
+  }
+
+  .lede{ max-width:680px; color:var(--ink-soft); font-size:16px; margin:0; }
+
+  .steps{ display:flex; flex-wrap:wrap; gap:18px; margin:22px 0 0; padding:0; list-style:none; }
+  .steps li{
+    flex:1 1 220px; background:var(--panel); border:1px solid var(--grid);
+    border-radius:4px; padding:12px 14px; font-size:14px; color:var(--ink-soft);
+  }
+  .steps li strong{ display:block; font-family:var(--font-mono); font-size:12px; color:var(--teal); margin-bottom:4px; }
+
+  .stage{ display:grid; grid-template-columns: 1.5fr 1fr; gap:24px; align-items:start; }
+  @media (max-width: 860px){ .stage{ grid-template-columns: 1fr; } }
+
+  .plot-card, .panel-card{ background:var(--panel); border:1px solid var(--grid); border-radius:6px; padding:18px; }
+  .plot-card h2, .panel-card h2{ font-family:var(--font-display); font-size:19px; margin:0 0 4px; }
+  .plot-hint{ font-size:13px; color:var(--ink-soft); margin:0 0 12px; }
+
+  svg#plot{
+    width:100%; height:auto; display:block;
+    background:#FEFDFA; border:1px solid var(--grid); border-radius:3px;
+  }
+
+  .axis-label{ font-family:var(--font-mono); font-size:11px; fill:var(--ink-soft); }
+
+  .centroid-marker{ cursor:grab; }
+  .centroid-marker.dragging{ cursor:grabbing; }
+
+  .panel-card{ display:flex; flex-direction:column; gap:16px; }
+
+  .control{ display:flex; flex-direction:column; gap:6px; }
+  .control label{ font-size:13px; font-weight:600; display:flex; justify-content:space-between; }
+  .control label .val{ font-family:var(--font-mono); color:var(--teal); }
+  input[type="range"]{ width:100%; accent-color:var(--teal); }
+  input[type="range"]:disabled{ opacity:0.6; }
+  input[type="range"]:focus-visible, button:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+
+  .sse-readout{ background:var(--teal-soft); border-radius:4px; padding:14px 16px; text-align:center; }
+  .sse-readout .label{
+    font-size:12px; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--ink-soft); font-family:var(--font-mono);
+  }
+  .sse-readout .number{ font-family:var(--font-mono); font-size:30px; font-weight:600; color:var(--ink); }
+
+  .btn-row{ display:flex; flex-direction:column; gap:10px; }
+  button{
+    font-family:var(--font-body); font-size:14px; font-weight:600; padding:10px 14px;
+    border-radius:4px; border:1px solid var(--grid); background:#fff; color:var(--ink);
+    cursor:pointer; transition: background 0.15s ease, transform 0.1s ease;
+  }
+  button:hover{ background:var(--amber-soft); }
+  button:active{ transform: translateY(1px); }
+  button.primary{ background:var(--teal); color:#fff; border-color:var(--teal); }
+  button.primary:hover{ background:#345c62; }
+  button:disabled{ background:var(--grid); border-color:var(--grid); color:var(--ink-soft); cursor:not-allowed; }
+
+  .cluster-summary{ border-top:1px dashed var(--grid); padding-top:14px; }
+  .cluster-summary table{ width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:12px; }
+  .cluster-summary th, .cluster-summary td{ text-align:left; padding:5px 6px; }
+  .cluster-summary th{ color:var(--ink-soft); font-weight:600; border-bottom:1px solid var(--grid); }
+  .cluster-summary td.num{ text-align:right; }
+  .swatch-dot{ width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:6px; vertical-align:middle; }
+
+  .compare{ display:none; border-top:1px dashed var(--grid); padding-top:14px; font-size:14px; }
+  .compare.show{ display:block; }
+  .compare .row{ display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:13px; margin-bottom:6px; }
+  .compare .verdict{ margin-top:10px; padding:10px 12px; background:var(--sage-soft); border-radius:4px; font-size:13.5px; color:var(--ink); }
+
+  .predict-box{ border-top:1px dashed var(--grid); padding-top:14px; display:flex; flex-direction:column; gap:8px; }
+  .predict-box .fields{ display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+  .predict-box label{ font-size:11px; color:var(--ink-soft); display:block; margin-bottom:3px; }
+  .predict-box input[type="number"]{
+    width:100%; padding:6px 8px; border:1px solid var(--grid); border-radius:4px;
+    font-family:var(--font-mono); font-size:13px;
+  }
+  .predict-result{
+    display:none; border-radius:4px; padding:12px 14px; text-align:center;
+  }
+  .predict-result.show{ display:block; }
+  .predict-result .label{
+    font-size:12px; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--ink-soft); font-family:var(--font-mono);
+  }
+  .predict-result .number{ font-family:var(--font-mono); font-size:20px; font-weight:600; }
+  .predict-marker{ stroke:#1B2430; stroke-width:2; }
+
+  .explainer{ margin-top:32px; background:var(--panel); border:1px solid var(--grid); border-radius:6px; padding:20px 22px; }
+  .explainer h2{ font-family:var(--font-display); font-size:20px; margin:0 0 10px; }
+  .explainer p{ color:var(--ink-soft); font-size:15px; margin:0 0 10px; }
+  .explainer dl{ display:grid; grid-template-columns: 170px 1fr; gap:6px 14px; margin:14px 0 0; font-size:14px; }
+  .explainer dt{ font-family:var(--font-mono); font-weight:600; color:var(--teal); }
+  .explainer dd{ margin:0; color:var(--ink); }
+
+  .sr-only{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+
+  @media (prefers-reduced-motion: reduce){ button{ transition:none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Unit 2 &middot; Companion to the Regression Demos</p>
+    <h1>Finding Structure Without Labels</h1>
+    <p class="lede">The regression demos all had an answer key: a real price to predict, and a loss that measured how wrong you were against it. This data has no answer key at all &mdash; just customers, described by how much they spend and how often they visit, with no "correct" grouping attached. Unsupervised learning doesn't predict a known value. It searches for structure that was already there, waiting to be noticed.</p>
+
+    <ol class="steps">
+      <li><strong>Step 1</strong>Choose how many groups (K) to look for, then drag the diamond-shaped centroids anywhere you like.</li>
+      <li><strong>Step 2</strong>Watch each customer snap to whichever centroid is closest, and watch the error number change.</li>
+      <li><strong>Step 3</strong>Click "Run to Convergence" to watch the algorithm take over: reassign, recenter, repeat, until it stops improving.</li>
+    </ol>
+  </header>
+
+  <section class="stage">
+    <div class="plot-card">
+      <h2>Customers by Spending and Visit Frequency</h2>
+      <p class="plot-hint">Click anywhere on the grid to add a customer. Drag a diamond to move its centroid by hand.</p>
+      <svg id="plot" viewBox="0 0 640 420" role="img" aria-label="Scatter plot of customers by monthly spending and visit frequency, colored by their assigned cluster, with draggable centroid markers"></svg>
+    </div>
+
+    <div class="panel-card">
+      <div>
+        <h2>Clustering controls</h2>
+        <p class="plot-hint">No formula this time &mdash; just groups and centers.</p>
+      </div>
+
+      <div class="control">
+        <label for="kSlider">Number of Clusters (K) <span class="val" id="kVal">3</span></label>
+        <input type="range" id="kSlider" min="2" max="6" step="1" value="3">
+      </div>
+
+      <div class="sse-readout">
+        <div class="label">Within-Cluster Sum of Squares</div>
+        <div class="number" id="wcssVal">&mdash;</div>
+      </div>
+
+      <div class="btn-row">
+        <button id="stepBtn">Run One Iteration</button>
+        <button class="primary" id="runBtn">Run to Convergence</button>
+        <button id="randomizeBtn">Randomize Centroids</button>
+        <button id="resetDataBtn">Reset to Example Data</button>
+        <button id="clearBtn">Clear All Customers</button>
+      </div>
+
+      <div class="cluster-summary">
+        <table>
+          <thead><tr><th>Cluster</th><th class="num">Center (Spend, Visits)</th><th class="num">Members</th></tr></thead>
+          <tbody id="clusterSummaryBody"></tbody>
+        </table>
+      </div>
+
+      <div class="compare" id="compare" aria-live="polite">
+        <div class="row"><span>Error before running</span><span id="beforeWCSS">&mdash;</span></div>
+        <div class="row"><span>Error after convergence</span><span id="afterWCSS">&mdash;</span></div>
+        <div class="verdict" id="verdictText"></div>
+      </div>
+
+      <div class="predict-box">
+        <strong style="font-size:13px;">Make a prediction</strong>
+        <p class="plot-hint" style="margin:0;">Which segment would a new customer fall into?</p>
+        <div class="fields">
+          <div><label for="predictSpend">Monthly spend ($)</label><input type="number" id="predictSpend" min="0" max="250" step="1" placeholder="e.g. 60"></div>
+          <div><label for="predictVisits">Visits/month</label><input type="number" id="predictVisits" min="0" max="16" step="1" placeholder="e.g. 6"></div>
+        </div>
+        <button id="predictBtn">Predict Cluster</button>
+        <div class="predict-result" id="predictResult">
+          <div class="label">Assigned Cluster</div>
+          <div class="number" id="predictedCluster">&mdash;</div>
+        </div>
+      </div>
+
+      <span class="sr-only" id="statusRegion" aria-live="polite"></span>
+    </div>
+  </section>
+
+  <section class="explainer">
+    <h2>What just happened</h2>
+    <p>There was never a "right" grouping to check against &mdash; that's the whole difference from the earlier demos. Instead, the algorithm you just ran, called <strong>k-means</strong>, minimizes a loss of its own invention: how far each point sits from the center of its own group, squared and summed, exactly the same shape of loss function as Sum of Squared Error, just without a known target to compare to.</p>
+    <p>Each round did two things in turn: every customer joined whichever centroid was nearest (assignment), then each centroid moved to the average position of its members (update). Repeat that enough times and the centroids stop moving &mdash; that's convergence. Try "Randomize Centroids" and running again: you may land on a different grouping than last time. Unlike the regression demos, k-means has no guaranteed single best answer. It only guarantees it will stop somewhere it can't improve from &mdash; which might be a different somewhere depending on where it started. That's a genuine, well-documented limitation of the algorithm, not a bug in this demo.</p>
+    <dl>
+      <dt>Unlabeled data</dt><dd>Examples with no known answer attached &mdash; just customers and their features.</dd>
+      <dt>Cluster</dt><dd>A group of points the algorithm decided belong together, based on distance alone.</dd>
+      <dt>Centroid</dt><dd>The center point of a cluster &mdash; the average position of every member.</dd>
+      <dt>Inertia / WCSS</dt><dd>The loss being minimized: total squared distance from each point to its own cluster's center.</dd>
+      <dt>Convergence</dt><dd>The point where reassigning and recentering stop changing anything.</dd>
+      <dt>Local optimum</dt><dd>A good stopping point the algorithm found &mdash; not necessarily the best one that exists.</dd>
+    </dl>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  const svg = document.getElementById('plot');
+  const NS = 'http://www.w3.org/2000/svg';
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const SPEND_MAX = 250, VISITS_MAX = 16;
+  const W = 640, H = 420, padL = 55, padR = 20, padT = 20, padB = 40;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  function xScale(spend){ return padL + (spend/SPEND_MAX)*plotW; }
+  function yScale(visits){ return padT + (1 - visits/VISITS_MAX)*plotH; }
+  function invScale(px, py){
+    const spend = (px - padL)/plotW * SPEND_MAX;
+    const visits = (1 - (py - padT)/plotH) * VISITS_MAX;
+    return { spend, visits };
+  }
+  function distNorm(a, b){
+    const dx = (a.spend - b.spend)/SPEND_MAX;
+    const dy = (a.visits - b.visits)/VISITS_MAX;
+    return Math.sqrt(dx*dx + dy*dy);
+  }
+
+  const PALETTE = ['#3E6E75', '#C97F2B', '#7A5FA6', '#4F7A5A', '#B23A2E', '#4B6FA0'];
+
+  const presetPoints = [
+    {spend:25, visits:10},{spend:30, visits:13},{spend:35, visits:9},
+    {spend:40, visits:14},{spend:45, visits:11},{spend:50, visits:12},
+    {spend:160, visits:2},{spend:180, visits:3},{spend:195, visits:1},
+    {spend:210, visits:4},{spend:225, visits:2},{spend:170, visits:3},
+    {spend:75, visits:5},{spend:85, visits:7},{spend:95, visits:4},
+    {spend:105, visits:8},{spend:115, visits:6},{spend:90, visits:5}
+  ];
+
+  let points = presetPoints.map(p => ({...p, cluster:0}));
+  let centroids = [];
+  let animating = false;
+
+  const kSlider = document.getElementById('kSlider');
+  const kVal = document.getElementById('kVal');
+  const wcssVal = document.getElementById('wcssVal');
+  const stepBtn = document.getElementById('stepBtn');
+  const runBtn = document.getElementById('runBtn');
+  const randomizeBtn = document.getElementById('randomizeBtn');
+  const resetDataBtn = document.getElementById('resetDataBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const clusterSummaryBody = document.getElementById('clusterSummaryBody');
+  const compare = document.getElementById('compare');
+  const beforeWCSS = document.getElementById('beforeWCSS');
+  const afterWCSS = document.getElementById('afterWCSS');
+  const verdictText = document.getElementById('verdictText');
+  const statusRegion = document.getElementById('statusRegion');
+  const predictSpendInput = document.getElementById('predictSpend');
+  const predictVisitsInput = document.getElementById('predictVisits');
+  const predictClusterBtn = document.getElementById('predictBtn');
+  const predictResult = document.getElementById('predictResult');
+  const predictedClusterEl = document.getElementById('predictedCluster');
+
+  let predictionPoint = null; // {spend, visits}
+
+  function randomCentroid(){
+    return { spend: 20 + Math.random()*(SPEND_MAX-40), visits: 1 + Math.random()*(VISITS_MAX-2) };
+  }
+
+  function setK(k){
+    while(centroids.length < k) centroids.push(randomCentroid());
+    while(centroids.length > k) centroids.pop();
+  }
+
+  function assignClusters(){
+    points.forEach(p => {
+      let best = 0, bestDist = Infinity;
+      centroids.forEach((c, i) => {
+        const d = distNorm(p, c);
+        if(d < bestDist){ bestDist = d; best = i; }
+      });
+      p.cluster = best;
+    });
+  }
+
+  function wcss(){
+    return points.reduce((sum, p) => {
+      const c = centroids[p.cluster];
+      if(!c) return sum;
+      const d = distNorm(p, c);
+      return sum + d*d;
+    }, 0);
+  }
+
+  function computeCentroidTargets(){
+    return centroids.map((c, i) => {
+      const members = points.filter(p => p.cluster === i);
+      if(members.length === 0) return { spend:c.spend, visits:c.visits };
+      const spend = members.reduce((s,p)=>s+p.spend,0)/members.length;
+      const visits = members.reduce((s,p)=>s+p.visits,0)/members.length;
+      return { spend, visits };
+    });
+  }
+
+  function fmt(n){ return n.toLocaleString(undefined,{maximumFractionDigits:2, minimumFractionDigits:0}); }
+  function clamp(v,lo,hi){ return Math.max(lo, Math.min(hi, v)); }
+  function el(tag, attrs){
+    const e = document.createElementNS(NS, tag);
+    for(const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function render(){
+    svg.innerHTML = '';
+
+    svg.appendChild(el('line', {x1:padL, y1:H-padB, x2:W-padR, y2:H-padB, stroke:'#4B5568', 'stroke-width':1}));
+    svg.appendChild(el('line', {x1:padL, y1:padT, x2:padL, y2:H-padB, stroke:'#4B5568', 'stroke-width':1}));
+
+    const xLabel = el('text', {x: padL+plotW/2, y: H-6, 'text-anchor':'middle', class:'axis-label'});
+    xLabel.textContent = 'Monthly Spending ($)';
+    svg.appendChild(xLabel);
+
+    const yLabel = el('text', {x: 16, y: padT+plotH/2, 'text-anchor':'middle', class:'axis-label', transform:`rotate(-90, 16, ${padT+plotH/2})`});
+    yLabel.textContent = 'Visits per Month';
+    svg.appendChild(yLabel);
+
+    for(let v=0; v<=SPEND_MAX; v+=50){
+      const t = el('text', {x:xScale(v), y:H-padB+16, 'text-anchor':'middle', class:'axis-label'});
+      t.textContent = '$'+v;
+      svg.appendChild(t);
+    }
+    for(let v=0; v<=VISITS_MAX; v+=4){
+      const t = el('text', {x:padL-8, y:yScale(v)+4, 'text-anchor':'end', class:'axis-label'});
+      t.textContent = v;
+      svg.appendChild(t);
+    }
+
+    // connecting lines (point -> its centroid)
+    points.forEach(p => {
+      const c = centroids[p.cluster];
+      if(!c) return;
+      const color = PALETTE[p.cluster % PALETTE.length];
+      svg.appendChild(el('line', {
+        x1:xScale(p.spend), y1:yScale(p.visits), x2:xScale(c.spend), y2:yScale(c.visits),
+        stroke:color, 'stroke-width':1, opacity:0.25
+      }));
+    });
+
+    // points
+    points.forEach(p => {
+      const color = PALETTE[p.cluster % PALETTE.length];
+      svg.appendChild(el('circle', {
+        cx:xScale(p.spend), cy:yScale(p.visits), r:6, fill:color, stroke:'#FBF8F2', 'stroke-width':1.5
+      }));
+    });
+
+    // centroids (diamonds)
+    centroids.forEach((c, i) => {
+      const color = PALETTE[i % PALETTE.length];
+      const cx = xScale(c.spend), cy = yScale(c.visits);
+      const size = 11;
+      const pts = `${cx},${cy-size} ${cx+size},${cy} ${cx},${cy+size} ${cx-size},${cy}`;
+      const marker = el('polygon', {
+        points: pts, fill: color, stroke:'#1B2430', 'stroke-width':1.5,
+        class:'centroid-marker', 'data-idx': i, tabindex:'0',
+        role:'button', 'aria-label': `Centroid ${i+1}, draggable`
+      });
+      svg.appendChild(marker);
+    });
+
+    // prediction marker
+    if(predictionPoint && centroids.length){
+      let bestIdx = 0, bestDist = Infinity;
+      centroids.forEach((c, i) => {
+        const d = distNorm(predictionPoint, c);
+        if(d < bestDist){ bestDist = d; bestIdx = i; }
+      });
+      const color = PALETTE[bestIdx % PALETTE.length];
+      const px = xScale(predictionPoint.spend), py = yScale(predictionPoint.visits);
+      const c = centroids[bestIdx];
+
+      svg.appendChild(el('line', {
+        x1:px, y1:py, x2:xScale(c.spend), y2:yScale(c.visits),
+        stroke:color, 'stroke-width':2, 'stroke-dasharray':'5 4'
+      }));
+
+      const size = 9;
+      const starPts = `${px},${py-size} ${px+size*0.3},${py-size*0.3} ${px+size},${py} ${px+size*0.3},${py+size*0.3} ${px},${py+size} ${px-size*0.3},${py+size*0.3} ${px-size},${py} ${px-size*0.3},${py-size*0.3}`;
+      svg.appendChild(el('polygon', {points:starPts, fill:color, class:'predict-marker'}));
+
+      predictedClusterEl.textContent = `Cluster ${bestIdx+1}`;
+      predictedClusterEl.style.color = color;
+      predictResult.style.background = color + '26';
+      predictResult.classList.add('show');
+    }
+
+    wcssVal.textContent = points.length ? fmt(wcss()) : '\u2014';
+
+    clusterSummaryBody.innerHTML = '';
+    centroids.forEach((c, i) => {
+      const color = PALETTE[i % PALETTE.length];
+      const members = points.filter(p => p.cluster === i).length;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><span class="swatch-dot" style="background:${color}"></span>${i+1}</td>
+        <td class="num">$${Math.round(c.spend)}, ${c.visits.toFixed(1)}</td>
+        <td class="num">${members}</td>
+      `;
+      clusterSummaryBody.appendChild(tr);
+    });
+  }
+
+  // ---- dragging centroids ----
+  let dragIdx = null;
+  svg.addEventListener('pointerdown', (e) => {
+    const target = e.target;
+    if(target && target.classList && target.classList.contains('centroid-marker')){
+      dragIdx = parseInt(target.getAttribute('data-idx'), 10);
+      target.classList.add('dragging');
+      svg.setPointerCapture(e.pointerId);
+      e.stopPropagation();
+      return;
+    }
+    // otherwise, treat as add-point click (handled on 'click' below to avoid firing during drags)
+  });
+
+  svg.addEventListener('pointermove', (e) => {
+    if(dragIdx === null || animating) return;
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX; pt.y = e.clientY;
+    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const data = invScale(clamp(svgP.x, padL, W-padR), clamp(svgP.y, padT, H-padB));
+    centroids[dragIdx].spend = clamp(data.spend, 0, SPEND_MAX);
+    centroids[dragIdx].visits = clamp(data.visits, 0, VISITS_MAX);
+    assignClusters();
+    render();
+  });
+
+  function endDrag(e){
+    if(dragIdx !== null){
+      compare.classList.remove('show');
+    }
+    dragIdx = null;
+  }
+  svg.addEventListener('pointerup', endDrag);
+  svg.addEventListener('pointercancel', endDrag);
+
+  svg.addEventListener('click', (e) => {
+    if(animating) return;
+    if(e.target && e.target.classList && e.target.classList.contains('centroid-marker')) return;
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX; pt.y = e.clientY;
+    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+    if(svgP.x < padL || svgP.x > W-padR || svgP.y < padT || svgP.y > H-padB) return;
+    const data = invScale(svgP.x, svgP.y);
+    points.push({ spend: Math.round(data.spend), visits: Math.round(data.visits*10)/10, cluster:0 });
+    assignClusters();
+    compare.classList.remove('show');
+    render();
+  });
+
+  // ---- controls ----
+  kSlider.addEventListener('input', () => {
+    const k = parseInt(kSlider.value, 10);
+    kVal.textContent = k;
+    setK(k);
+    assignClusters();
+    compare.classList.remove('show');
+    render();
+  });
+
+  randomizeBtn.addEventListener('click', () => {
+    centroids = centroids.map(() => randomCentroid());
+    assignClusters();
+    compare.classList.remove('show');
+    render();
+  });
+
+  resetDataBtn.addEventListener('click', () => {
+    points = presetPoints.map(p => ({...p, cluster:0}));
+    kSlider.value = 3; kVal.textContent = 3;
+    centroids = [];
+    setK(3);
+    assignClusters();
+    compare.classList.remove('show');
+    render();
+  });
+
+  predictClusterBtn.addEventListener('click', () => {
+    const spend = parseFloat(predictSpendInput.value);
+    const visits = parseFloat(predictVisitsInput.value);
+    if(isNaN(spend) || isNaN(visits)) return;
+    predictionPoint = { spend, visits };
+    render();
+    let bestIdx = 0, bestDist = Infinity;
+    centroids.forEach((c, i) => {
+      const d = distNorm(predictionPoint, c);
+      if(d < bestDist){ bestDist = d; bestIdx = i; }
+    });
+    statusRegion.textContent = `A customer spending $${spend} with ${visits} visits/month would be assigned to Cluster ${bestIdx+1}.`;
+  });
+
+  clearBtn.addEventListener('click', () => {
+    points = [];
+    compare.classList.remove('show');
+    render();
+  });
+
+  function setControlsDisabled(disabled){
+    stepBtn.disabled = disabled; runBtn.disabled = disabled;
+    randomizeBtn.disabled = disabled; resetDataBtn.disabled = disabled;
+    clearBtn.disabled = disabled; kSlider.disabled = disabled;
+  }
+
+  function easeOutCubic(t){ return 1 - Math.pow(1-t, 3); }
+
+  function animateCentroidsTo(targets, duration){
+    return new Promise(resolve => {
+      if(reduceMotion){
+        centroids.forEach((c,i) => { c.spend = targets[i].spend; c.visits = targets[i].visits; });
+        render();
+        resolve();
+        return;
+      }
+      const start = centroids.map(c => ({spend:c.spend, visits:c.visits}));
+      const startTime = performance.now();
+      function frame(now){
+        const t = Math.min(1, (now-startTime)/duration);
+        const e = easeOutCubic(t);
+        centroids.forEach((c,i) => {
+          c.spend = start[i].spend + (targets[i].spend-start[i].spend)*e;
+          c.visits = start[i].visits + (targets[i].visits-start[i].visits)*e;
+        });
+        render();
+        if(t < 1){ requestAnimationFrame(frame); } else { resolve(); }
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+
+  function sleep(ms){ return new Promise(r => setTimeout(r, reduceMotion ? 0 : ms)); }
+
+  async function runOneIteration(){
+    if(animating || points.length === 0) return;
+    animating = true;
+    setControlsDisabled(true);
+    assignClusters();
+    render();
+    await sleep(200);
+    const targets = computeCentroidTargets();
+    await animateCentroidsTo(targets, 500);
+    assignClusters();
+    render();
+    animating = false;
+    setControlsDisabled(false);
+    statusRegion.textContent = `Ran one iteration. Current error: ${fmt(wcss())}.`;
+  }
+
+  async function runToConvergence(){
+    if(animating || points.length === 0) return;
+    animating = true;
+    setControlsDisabled(true);
+    compare.classList.remove('show');
+
+    assignClusters();
+    render();
+    const initial = wcss();
+
+    const maxIters = 15;
+    const eps = 0.01;
+    let converged = false;
+
+    for(let iter=0; iter<maxIters; iter++){
+      assignClusters();
+      render();
+      await sleep(220);
+      const targets = computeCentroidTargets();
+      const movement = Math.max(...centroids.map((c,i) => distNorm(c, targets[i])));
+      await animateCentroidsTo(targets, 480);
+      if(movement < eps){ converged = true; break; }
+    }
+    assignClusters();
+    render();
+    const final = wcss();
+
+    beforeWCSS.textContent = fmt(initial);
+    afterWCSS.textContent = fmt(final);
+    let verdict;
+    if(initial <= final + 1e-6){
+      verdict = "Your starting placement was already at or near where the algorithm converged.";
+    } else {
+      const pct = ((initial-final)/(initial||1))*100;
+      verdict = `The algorithm reduced total error by about ${fmt(pct)}% from where you started, over ${converged ? 'a few' : 'the maximum'} rounds of reassigning and recentering. Try "Randomize Centroids" and running again \u2014 k-means doesn't always land in the same place twice.`;
+    }
+    verdictText.textContent = verdict;
+    compare.classList.add('show');
+    statusRegion.textContent = `Converged. Error before: ${fmt(initial)}. Error after: ${fmt(final)}.`;
+
+    animating = false;
+    setControlsDisabled(false);
+  }
+
+  stepBtn.addEventListener('click', runOneIteration);
+  runBtn.addEventListener('click', runToConvergence);
+
+  // ---- init ----
+  setK(parseInt(kSlider.value, 10));
+  assignClusters();
+  render();
+})();
+</script>
+</body>
+</html>

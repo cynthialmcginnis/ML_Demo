@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>When One Line Isn't Enough — Multi-Feature Regression Demo</title>
+<style>
+  :root{
+    --paper:#F6F1E7;
+    --panel:#FBF8F2;
+    --ink:#1B2430;
+    --ink-soft:#4B5568;
+    --grid:#D8D2C2;
+    --teal:#3E6E75;
+    --teal-soft:#DCE9EA;
+    --amber:#C97F2B;
+    --amber-soft:#F3E1C8;
+    --brick:#B23A2E;
+    --sage:#4F7A5A;
+    --sage-soft:#DCE8DF;
+    --violet:#7A5FA6;
+    --violet-soft:#E9E2F2;
+    --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--font-body);
+    line-height:1.5;
+  }
+
+  .wrap{ max-width:1120px; margin:0 auto; padding:32px 20px 64px; }
+
+  header.hero{ border-bottom:1px solid var(--grid); padding-bottom:24px; margin-bottom:28px; }
+
+  .eyebrow{
+    font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em;
+    text-transform:uppercase; color:var(--teal); margin:0 0 10px;
+  }
+
+  h1{
+    font-family:var(--font-display); font-weight:700;
+    font-size:clamp(28px, 4vw, 42px); line-height:1.1; margin:0 0 12px;
+  }
+
+  .lede{ max-width:680px; color:var(--ink-soft); font-size:16px; margin:0; }
+
+  .steps{ display:flex; flex-wrap:wrap; gap:18px; margin:22px 0 0; padding:0; list-style:none; }
+  .steps li{
+    flex:1 1 220px; background:var(--panel); border:1px solid var(--grid);
+    border-radius:4px; padding:12px 14px; font-size:14px; color:var(--ink-soft);
+  }
+  .steps li strong{
+    display:block; font-family:var(--font-mono); font-size:12px;
+    color:var(--teal); margin-bottom:4px;
+  }
+
+  .stage{ display:grid; grid-template-columns: 1.6fr 1fr; gap:24px; align-items:start; }
+  @media (max-width: 860px){ .stage{ grid-template-columns: 1fr; } }
+
+  .plot-card, .panel-card{
+    background:var(--panel); border:1px solid var(--grid);
+    border-radius:6px; padding:18px;
+  }
+  .plot-card h2, .panel-card h2{ font-family:var(--font-display); font-size:19px; margin:0 0 4px; }
+  .plot-hint{ font-size:13px; color:var(--ink-soft); margin:0 0 12px; }
+
+  .legend{
+    display:flex; gap:18px; font-size:12px; color:var(--ink-soft);
+    margin-bottom:10px; flex-wrap:wrap; align-items:center;
+  }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .swatch{ width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .swatch.actual{ background:var(--teal); }
+  .swatch.plane{ width:16px; height:10px; border-radius:2px; background:rgba(201,127,43,0.5); border:1px solid var(--amber); }
+
+  .canvas-wrap{ position:relative; }
+
+  canvas#plot3d{
+    width:100%;
+    height:auto;
+    display:block;
+    background:#FEFDFA;
+    border:1px solid var(--grid);
+    border-radius:3px;
+    cursor:grab;
+    touch-action:none;
+  }
+  canvas#plot3d.dragging{ cursor:grabbing; }
+
+  .view-controls{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-top:8px; font-size:12px; color:var(--ink-soft);
+  }
+  .view-controls button{
+    font-size:12px; padding:6px 10px;
+  }
+
+  .data-table-wrap{
+    margin-top:14px; max-height:180px; overflow-y:auto;
+    border:1px solid var(--grid); border-radius:4px;
+  }
+  table.data-table{ width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:12px; }
+  table.data-table th, table.data-table td{
+    text-align:right; padding:6px 10px; border-bottom:1px solid var(--grid); white-space:nowrap;
+  }
+  table.data-table th:first-child, table.data-table td:first-child{ text-align:left; }
+  table.data-table thead th{
+    background:var(--teal-soft); position:sticky; top:0; font-weight:600;
+  }
+  table.data-table td.err-tiny{ color:var(--sage); }
+  table.data-table td.err-big{ color:var(--brick); }
+
+  .panel-card{ display:flex; flex-direction:column; gap:16px; }
+
+  .equation{
+    font-family:var(--font-mono); font-size:13.5px; background:var(--amber-soft);
+    border-radius:4px; padding:12px 14px; line-height:1.6;
+  }
+  .equation .num{ color:var(--teal); font-weight:600; }
+
+  .control{ display:flex; flex-direction:column; gap:6px; }
+  .control label{ font-size:13px; font-weight:600; display:flex; justify-content:space-between; }
+  .control label .val{ font-family:var(--font-mono); color:var(--teal); }
+
+  input[type="range"]{ width:100%; accent-color:var(--teal); }
+  input[type="number"]{
+    width:100%; padding:6px 8px; border:1px solid var(--grid); border-radius:4px;
+    font-family:var(--font-mono); font-size:13px;
+  }
+  input[type="range"]:disabled{ opacity:0.6; }
+
+  input[type="range"]:focus-visible,
+  input[type="number"]:focus-visible,
+  button:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+
+  .sse-readout{ background:var(--teal-soft); border-radius:4px; padding:14px 16px; text-align:center; }
+  .sse-readout .label{
+    font-size:12px; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--ink-soft); font-family:var(--font-mono);
+  }
+  .sse-readout .number{ font-family:var(--font-mono); font-size:30px; font-weight:600; color:var(--ink); }
+
+  .btn-row{ display:flex; flex-direction:column; gap:10px; }
+
+  button{
+    font-family:var(--font-body); font-size:14px; font-weight:600; padding:10px 14px;
+    border-radius:4px; border:1px solid var(--grid); background:#fff; color:var(--ink);
+    cursor:pointer; transition: background 0.15s ease, transform 0.1s ease;
+  }
+  button:hover{ background:var(--amber-soft); }
+  button:active{ transform: translateY(1px); }
+  button.primary{ background:var(--teal); color:#fff; border-color:var(--teal); }
+  button.primary:hover{ background:#345c62; }
+  button.primary:disabled{
+    background:var(--grid); border-color:var(--grid); color:var(--ink-soft); cursor:not-allowed;
+  }
+
+  .add-house{ border-top:1px dashed var(--grid); padding-top:14px; display:flex; flex-direction:column; gap:8px; }
+  .add-house .fields{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap:8px; }
+  .add-house label{ font-size:11px; color:var(--ink-soft); display:block; margin-bottom:3px; }
+
+  .predict-box{ border-top:1px dashed var(--grid); padding-top:14px; display:flex; flex-direction:column; gap:8px; }
+  .predict-box .fields{ display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+  .predict-box label{ font-size:11px; color:var(--ink-soft); display:block; margin-bottom:3px; }
+  .predict-result{
+    display:none; background:var(--violet-soft); border-radius:4px;
+    padding:12px 14px; text-align:center;
+  }
+  .predict-result.show{ display:block; }
+  .predict-result .label{
+    font-size:12px; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--ink-soft); font-family:var(--font-mono);
+  }
+  .predict-result .number{ font-family:var(--font-mono); font-size:26px; font-weight:600; color:var(--ink); }
+  .predict-result .note{ font-size:12px; color:var(--brick); margin-top:6px; }
+
+  .compare{ display:none; border-top:1px dashed var(--grid); padding-top:14px; font-size:14px; }
+  .compare.show{ display:block; }
+  .compare .row{
+    display:flex; justify-content:space-between; font-family:var(--font-mono);
+    font-size:13px; margin-bottom:6px;
+  }
+  .compare .verdict{
+    margin-top:10px; padding:10px 12px; background:var(--sage-soft);
+    border-radius:4px; font-size:13.5px; color:var(--ink);
+  }
+
+  .explainer{
+    margin-top:32px; background:var(--panel); border:1px solid var(--grid);
+    border-radius:6px; padding:20px 22px;
+  }
+  .explainer h2{ font-family:var(--font-display); font-size:20px; margin:0 0 10px; }
+  .explainer p{ color:var(--ink-soft); font-size:15px; margin:0 0 10px; }
+  .explainer dl{ display:grid; grid-template-columns: 160px 1fr; gap:6px 14px; margin:14px 0 0; font-size:14px; }
+  .explainer dt{ font-family:var(--font-mono); font-weight:600; color:var(--teal); }
+  .explainer dd{ margin:0; color:var(--ink); }
+
+  .sr-only{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+
+  @media (prefers-reduced-motion: reduce){ button{ transition:none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Unit 2 &middot; Follow-on to "Finding the Line That Fits"</p>
+    <h1>When One Line Isn't Enough</h1>
+    <p class="lede">The last demo used one feature, hours studied, so the model was a line you could see directly. Add a second feature and the model becomes a <em>plane</em> tilting through three-dimensional space &mdash; still just as real, still just as draggable into place, but it takes a real 3D view to see it. Drag to rotate the scene below and watch the plane itself, not just a stand-in for it.</p>
+
+    <ol class="steps">
+      <li><strong>Step 1</strong>Drag inside the plot to rotate the view. Adjust the three weight sliders and watch the amber plane tilt.</li>
+      <li><strong>Step 2</strong>Each teal dot is a real house. The line from the dot down to the plane is that house's error.</li>
+      <li><strong>Step 3</strong>Click "Reveal Best-Fit Weights" to watch the plane settle into the tilt that minimizes error across every house at once.</li>
+    </ol>
+  </header>
+
+  <section class="stage">
+    <div class="plot-card">
+      <h2>Price as a Plane Through Square Footage and Age</h2>
+      <p class="plot-hint">The floor axes are square footage and age; height is price. The amber surface is your model's prediction at every combination of the two features.</p>
+      <div class="legend">
+        <span><span class="swatch actual"></span>Actual house</span>
+        <span><span class="swatch plane"></span>Model's predicted surface</span>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="plot3d" width="800" height="620" role="img" aria-label="Interactive 3D plot of home price as a plane over square footage and age, with data points showing actual prices"></canvas>
+      </div>
+      <div class="view-controls">
+        <span>Drag to rotate the view</span>
+        <button id="resetViewBtn">Reset View</button>
+      </div>
+
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr><th>House</th><th>Sq ft</th><th>Age</th><th>Actual</th><th>Predicted</th><th>Error</th></tr>
+          </thead>
+          <tbody id="dataTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel-card">
+      <div>
+        <h2>Your model</h2>
+        <p class="plot-hint">price = w&#8321;&middot;sqft(100s) + w&#8322;&middot;age + b</p>
+      </div>
+
+      <div class="equation" id="equationText">price = <span class="num">0.0</span> &middot; sqft(100s) + <span class="num">0.00</span> &middot; age + <span class="num">50</span></div>
+
+      <div class="control">
+        <label for="w1">Weight on Square Footage (w&#8321;) <span class="val" id="w1Val">0.0</span></label>
+        <input type="range" id="w1" min="0" max="15" step="0.1" value="0">
+      </div>
+
+      <div class="control">
+        <label for="w2">Weight on Age (w&#8322;) <span class="val" id="w2Val">0.00</span></label>
+        <input type="range" id="w2" min="-3" max="3" step="0.05" value="0">
+      </div>
+
+      <div class="control">
+        <label for="bias">Intercept / Bias (b) <span class="val" id="biasVal">50</span></label>
+        <input type="range" id="bias" min="-50" max="150" step="1" value="50">
+      </div>
+
+      <div class="sse-readout">
+        <div class="label">Sum of Squared Error</div>
+        <div class="number" id="sseVal">&mdash;</div>
+      </div>
+
+      <div class="btn-row">
+        <button class="primary" id="revealBtn">Reveal Best-Fit Weights</button>
+        <button id="resetDataBtn">Reset to Example Data</button>
+        <button id="clearBtn">Clear All Houses</button>
+      </div>
+
+      <div class="add-house">
+        <strong style="font-size:13px;">Add your own house</strong>
+        <div class="fields">
+          <div><label for="addSqft">Sq. ft.</label><input type="number" id="addSqft" min="200" max="6000" step="50" placeholder="1500"></div>
+          <div><label for="addAge">Age (yrs)</label><input type="number" id="addAge" min="0" max="100" step="1" placeholder="15"></div>
+          <div><label for="addPrice">Price ($1000s)</label><input type="number" id="addPrice" min="0" max="1000" step="1" placeholder="180"></div>
+        </div>
+        <button id="addHouseBtn">Add House</button>
+      </div>
+
+      <div class="compare" id="compare" aria-live="polite">
+        <div class="row"><span>Your model's error</span><span id="yourSSE">&mdash;</span></div>
+        <div class="row"><span>Best possible error</span><span id="bestSSE">&mdash;</span></div>
+        <div class="verdict" id="verdictText"></div>
+      </div>
+
+      <div class="predict-box">
+        <strong style="font-size:13px;">Make a prediction</strong>
+        <div class="fields">
+          <div><label for="predictSqft">Sq. ft.</label><input type="number" id="predictSqft" min="200" max="6000" step="50" placeholder="1500"></div>
+          <div><label for="predictAge">Age (yrs)</label><input type="number" id="predictAge" min="0" max="100" step="1" placeholder="15"></div>
+        </div>
+        <button id="predictBtn">Predict Price</button>
+        <div class="predict-result" id="predictResult">
+          <div class="label">Predicted Price</div>
+          <div class="number" id="predictedPrice">&mdash;</div>
+          <div class="note" id="predictNote"></div>
+        </div>
+      </div>
+
+      <span class="sr-only" id="statusRegion" aria-live="polite"></span>
+    </div>
+  </section>
+
+  <section class="explainer">
+    <h2>What just happened</h2>
+    <p>With one feature, training meant searching two numbers: slope and intercept, and the model was a line. With two features, it's three numbers, and the model is a plane &mdash; a flat surface tilting through square footage, age, and price all at once. Every extra feature adds one more axis to the space the model lives in and one more weight to search for. The loss function never changes: still Sum of Squared Error, still the vertical gap between where a house actually is and where the surface says it should be.</p>
+    <p>This is also the bridge to deep learning. A single neuron in a neural network computes exactly this: a weighted sum of its inputs plus a bias &mdash; the same plane-fitting math, just one small piece of a much larger network. What makes a network "deep" isn't different math, it's thousands of these weighted sums layered together, each trained the same way you just trained three numbers here.</p>
+    <dl>
+      <dt>Feature vector</dt><dd>All of a house's inputs together &mdash; here, [square footage, age].</dd>
+      <dt>Weight</dt><dd>How much each feature counts toward the prediction &mdash; w&#8321; and w&#8322; above.</dd>
+      <dt>Weighted sum</dt><dd>Multiply each feature by its weight, add the bias &mdash; that's the entire prediction, and it's what defines the plane's tilt.</dd>
+      <dt>Bias</dt><dd>A baseline value added regardless of the features &mdash; the intercept, b, which sets the plane's height at the origin.</dd>
+      <dt>Training</dt><dd>Searching for the weights and bias that make total error, across every house, as small as possible.</dd>
+    </dl>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('plot3d');
+  const ctx = canvas.getContext('2d');
+  const tableBody = document.getElementById('dataTableBody');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---- data ----
+  const presetPoints = [
+    {sqft:1000, age:5,  y:120, added:false},
+    {sqft:1200, age:20, y:122, added:false},
+    {sqft:1400, age:2,  y:150, added:false},
+    {sqft:1500, age:30, y:128, added:false},
+    {sqft:1800, age:10, y:172, added:false},
+    {sqft:2000, age:40, y:155, added:false},
+    {sqft:2200, age:5,  y:205, added:false},
+    {sqft:2400, age:25, y:195, added:false},
+    {sqft:2600, age:15, y:224, added:false},
+    {sqft:2800, age:45, y:206, added:false},
+    {sqft:1600, age:8,  y:158, added:false},
+    {sqft:900,  age:35, y:88,  added:false}
+  ].map(p => ({...p, x1: p.sqft/100, x2: p.age}));
+
+  let points = presetPoints.map(p => ({...p}));
+
+  // ---- controls ----
+  const w1Input = document.getElementById('w1');
+  const w2Input = document.getElementById('w2');
+  const biasInput = document.getElementById('bias');
+  const w1Val = document.getElementById('w1Val');
+  const w2Val = document.getElementById('w2Val');
+  const biasVal = document.getElementById('biasVal');
+  const sseVal = document.getElementById('sseVal');
+  const equationText = document.getElementById('equationText');
+  const revealBtn = document.getElementById('revealBtn');
+  const resetDataBtn = document.getElementById('resetDataBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const addHouseBtn = document.getElementById('addHouseBtn');
+  const resetViewBtn = document.getElementById('resetViewBtn');
+  const compare = document.getElementById('compare');
+  const yourSSE = document.getElementById('yourSSE');
+  const bestSSE = document.getElementById('bestSSE');
+  const verdictText = document.getElementById('verdictText');
+  const statusRegion = document.getElementById('statusRegion');
+  const predictSqftInput = document.getElementById('predictSqft');
+  const predictAgeInput = document.getElementById('predictAge');
+  const predictBtn = document.getElementById('predictBtn');
+  const predictResult = document.getElementById('predictResult');
+  const predictedPriceEl = document.getElementById('predictedPrice');
+  const predictNote = document.getElementById('predictNote');
+
+  let w1 = parseFloat(w1Input.value);
+  let w2 = parseFloat(w2Input.value);
+  let bias = parseFloat(biasInput.value);
+  let animating = false;
+  let predictionPoint = null; // {x1, x2, sqft, age}
+
+  // ---- math helpers ----
+  function predict(p, w1v, w2v, bv){ return w1v*p.x1 + w2v*p.x2 + bv; }
+
+  function sse(w1v, w2v, bv){
+    return points.reduce((sum,p) => {
+      const err = p.y - predict(p, w1v, w2v, bv);
+      return sum + err*err;
+    }, 0);
+  }
+
+  function bestFit(){
+    const n = points.length;
+    if(n < 3) return null;
+    let A = [[0,0,0],[0,0,0],[0,0,0]];
+    let Bv = [0,0,0];
+    points.forEach(p => {
+      const row = [p.x1, p.x2, 1];
+      for(let i=0;i<3;i++){
+        Bv[i] += row[i]*p.y;
+        for(let j=0;j<3;j++){ A[i][j] += row[i]*row[j]; }
+      }
+    });
+    const sol = gaussianSolve(A, Bv);
+    if(!sol) return null;
+    return { w1: sol[0], w2: sol[1], b: sol[2] };
+  }
+
+  function gaussianSolve(A, b){
+    const n = b.length;
+    const M = A.map((row,i) => [...row, b[i]]);
+    for(let col=0; col<n; col++){
+      let pivot = col;
+      for(let r=col+1; r<n; r++){ if(Math.abs(M[r][col]) > Math.abs(M[pivot][col])) pivot = r; }
+      if(Math.abs(M[pivot][col]) < 1e-9) return null;
+      [M[col], M[pivot]] = [M[pivot], M[col]];
+      for(let r=0; r<n; r++){
+        if(r===col) continue;
+        const factor = M[r][col]/M[col][col];
+        for(let c=col; c<=n; c++){ M[r][c] -= factor*M[col][c]; }
+      }
+    }
+    return M.map((row,i) => row[n]/row[i]);
+  }
+
+  function fmt(n){ return n.toLocaleString(undefined,{maximumFractionDigits:1, minimumFractionDigits:0}); }
+  function fmtMoney(n){ return '$' + Math.round(n) + 'k'; }
+  function clamp(v,lo,hi){ return Math.max(lo, Math.min(hi, v)); }
+
+  // ---- 3D world / projection ----
+  const X1_MIN=0, X1_MAX=30;   // sqft/100 -> 0 to 3000 sqft
+  const X2_MIN=0, X2_MAX=50;   // age in years
+  const Z_MAX=260;             // price domain for normalization
+  const HEIGHT_SCALE=1.35;
+
+  function n1(x1){ return ((x1-X1_MIN)/(X1_MAX-X1_MIN))*2-1; }
+  function n2(x2){ return ((x2-X2_MIN)/(X2_MAX-X2_MIN))*2-1; }
+  function n3(price){ return (price/Z_MAX)*HEIGHT_SCALE; }
+
+  let theta = -0.78;   // azimuth
+  let phi = 0.52;      // elevation
+  const camDist = 3.4;
+  let baseScale = 150; // px per world unit at depth 0, recalculated on resize
+
+  function project(x1n, x2n, zn){
+    // rotate around vertical (z) axis by theta
+    const rx = x1n*Math.cos(theta) - x2n*Math.sin(theta);
+    const ry = x1n*Math.sin(theta) + x2n*Math.cos(theta);
+    const rz = zn;
+    // tilt around horizontal axis by phi (elevation)
+    const ry2 = ry*Math.cos(phi) - rz*Math.sin(phi);
+    const rz2 = ry*Math.sin(phi) + rz*Math.cos(phi);
+    const rx2 = rx;
+    const persp = camDist/(camDist+ry2);
+    return {
+      sx: rx2*baseScale*persp,
+      sy: -rz2*baseScale*persp,
+      depth: ry2,
+      scale: persp
+    };
+  }
+
+  function toScreen(px){
+    return { x: canvas.width/2 + px.sx, y: canvas.height/2 + 60 + px.sy };
+  }
+
+  // ---- rotation drag ----
+  let dragging = false, lastX=0, lastY=0, userInteracted=false;
+  canvas.addEventListener('pointerdown', (e) => {
+    dragging = true; userInteracted = true;
+    lastX = e.clientX; lastY = e.clientY;
+    canvas.classList.add('dragging');
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if(!dragging) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    theta += dx*0.006;
+    phi = clamp(phi - dy*0.006, 0.12, 1.45);
+  });
+  function endDrag(e){ dragging = false; canvas.classList.remove('dragging'); }
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+  canvas.addEventListener('pointerleave', endDrag);
+
+  resetViewBtn.addEventListener('click', () => {
+    theta = -0.78; phi = 0.52; userInteracted = true;
+  });
+
+  // ---- drawing ----
+  function drawLine3(a, b, style, lineWidth){
+    const pa = toScreen(project(a[0],a[1],a[2]));
+    const pb = toScreen(project(b[0],b[1],b[2]));
+    ctx.strokeStyle = style;
+    ctx.lineWidth = lineWidth || 1;
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+    ctx.stroke();
+  }
+
+  function textAt(x1n,x2n,zn, text, opts){
+    const p = toScreen(project(x1n,x2n,zn));
+    ctx.fillStyle = (opts && opts.color) || '#4B5568';
+    ctx.font = (opts && opts.font) || '11px ui-monospace, monospace';
+    ctx.textAlign = (opts && opts.align) || 'center';
+    ctx.fillText(text, p.x, p.y);
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // floor grid (reference plane at price = 0)
+    const floorSteps = 6;
+    ctx.globalAlpha = 1;
+    for(let i=0;i<=floorSteps;i++){
+      const x1v = X1_MIN + (i/floorSteps)*(X1_MAX-X1_MIN);
+      drawLine3([n1(x1v), n2(X2_MIN), 0], [n1(x1v), n2(X2_MAX), 0], '#E4DECC', 1);
+    }
+    for(let j=0;j<=floorSteps;j++){
+      const x2v = X2_MIN + (j/floorSteps)*(X2_MAX-X2_MIN);
+      drawLine3([n1(X1_MIN), n2(x2v), 0], [n1(X1_MAX), n2(x2v), 0], '#E4DECC', 1);
+    }
+
+    // axes (bounding-box corner style)
+    drawLine3([n1(X1_MIN), n2(X2_MIN), 0], [n1(X1_MAX), n2(X2_MIN), 0], '#4B5568', 1.5); // sqft axis
+    drawLine3([n1(X1_MIN), n2(X2_MIN), 0], [n1(X1_MIN), n2(X2_MAX), 0], '#4B5568', 1.5); // age axis
+    drawLine3([n1(X1_MIN), n2(X2_MIN), 0], [n1(X1_MIN), n2(X2_MIN), n3(Z_MAX)], '#4B5568', 1.5); // price axis
+
+    for(let sqftTick=0; sqftTick<=3000; sqftTick+=1000){
+      textAt(n1(sqftTick/100), n2(X2_MIN)-0.08, -0.03, sqftTick.toLocaleString(), {color:'#4B5568'});
+    }
+    textAt(n1(1500/100), n2(X2_MIN)-0.24, -0.03, 'Square Feet', {color:'#1B2430', font:'12px Georgia, serif'});
+
+    for(let ageTick=0; ageTick<=50; ageTick+=10){
+      textAt(n1(X1_MIN)-0.1, n2(ageTick), -0.03, ageTick, {color:'#4B5568', align:'right'});
+    }
+    textAt(n1(X1_MIN)-0.28, n2(25), -0.03, 'Age (yrs)', {color:'#1B2430', align:'right', font:'12px Georgia, serif'});
+
+    for(let priceTick=0; priceTick<=250; priceTick+=50){
+      textAt(n1(X1_MIN)-0.08, n2(X2_MIN)-0.05, n3(priceTick), '$'+priceTick+'k', {color:'#4B5568', align:'right'});
+    }
+
+    // gather depth-sortable drawables: plane quads + data points/stems
+    const drawables = [];
+
+    const segs = 6;
+    for(let i=0;i<segs;i++){
+      for(let j=0;j<segs;j++){
+        const x1a = X1_MIN + (i/segs)*(X1_MAX-X1_MIN);
+        const x1b = X1_MIN + ((i+1)/segs)*(X1_MAX-X1_MIN);
+        const x2a = X2_MIN + (j/segs)*(X2_MAX-X2_MIN);
+        const x2b = X2_MIN + ((j+1)/segs)*(X2_MAX-X2_MIN);
+        const corners = [[x1a,x2a],[x1b,x2a],[x1b,x2b],[x1a,x2b]].map(([x1,x2]) => {
+          const price = w1*x1 + w2*x2 + bias;
+          return project(n1(x1), n2(x2), n3(price));
+        });
+        const avgDepth = corners.reduce((s,c)=>s+c.depth,0)/4;
+        drawables.push({ type:'quad', depth:avgDepth, pts: corners.map(toScreen) });
+      }
+    }
+
+    points.forEach(p => {
+      const predY = predict(p, w1, w2, bias);
+      const err = p.y - predY;
+      const absErr = Math.abs(err);
+      const tiny = absErr < 8;
+
+      const actualProj = project(n1(p.x1), n2(p.x2), n3(p.y));
+      const predProj = project(n1(p.x1), n2(p.x2), n3(predY));
+      const avgDepth = (actualProj.depth + predProj.depth)/2;
+
+      drawables.push({
+        type:'point', depth: avgDepth,
+        actual: toScreen(actualProj), pred: toScreen(predProj),
+        scale: actualProj.scale, tiny, p, predY
+      });
+    });
+
+    if(predictionPoint){
+      const predPrice = w1*predictionPoint.x1 + w2*predictionPoint.x2 + bias;
+      const floorProj = project(n1(predictionPoint.x1), n2(predictionPoint.x2), 0);
+      const topProj = project(n1(predictionPoint.x1), n2(predictionPoint.x2), n3(predPrice));
+      const avgDepth = (floorProj.depth + topProj.depth)/2;
+      drawables.push({
+        type:'prediction', depth: avgDepth,
+        floor: toScreen(floorProj), top: toScreen(topProj), scale: topProj.scale
+      });
+    }
+
+    drawables.sort((a,b) => b.depth - a.depth); // far first
+
+    drawables.forEach(d => {
+      if(d.type === 'quad'){
+        ctx.beginPath();
+        ctx.moveTo(d.pts[0].x, d.pts[0].y);
+        for(let k=1;k<d.pts.length;k++) ctx.lineTo(d.pts[k].x, d.pts[k].y);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(201,127,43,0.32)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(201,127,43,0.55)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      } else if(d.type === 'point'){
+        // residual stem
+        ctx.strokeStyle = d.tiny ? '#4F7A5A' : '#B23A2E';
+        ctx.globalAlpha = 0.75;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(d.actual.x, d.actual.y);
+        ctx.lineTo(d.pred.x, d.pred.y);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        // predicted touch point (small amber dot on the plane)
+        ctx.beginPath();
+        ctx.fillStyle = '#C97F2B';
+        ctx.arc(d.pred.x, d.pred.y, Math.max(2.5, 3.5*d.scale), 0, Math.PI*2);
+        ctx.fill();
+
+        // actual house marker
+        ctx.beginPath();
+        ctx.fillStyle = '#3E6E75';
+        ctx.strokeStyle = '#FBF8F2';
+        ctx.lineWidth = 1.5;
+        ctx.arc(d.actual.x, d.actual.y, Math.max(4, 6*d.scale), 0, Math.PI*2);
+        ctx.fill();
+        ctx.stroke();
+      } else if(d.type === 'prediction'){
+        ctx.setLineDash([5,4]);
+        ctx.strokeStyle = '#7A5FA6';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(d.floor.x, d.floor.y);
+        ctx.lineTo(d.top.x, d.top.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.beginPath();
+        ctx.fillStyle = '#7A5FA6';
+        ctx.strokeStyle = '#FBF8F2';
+        ctx.lineWidth = 1.5;
+        ctx.arc(d.top.x, d.top.y, Math.max(5, 7*d.scale), 0, Math.PI*2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.fillStyle = 'rgba(122,95,166,0.5)';
+        ctx.arc(d.floor.x, d.floor.y, Math.max(3, 4*d.scale), 0, Math.PI*2);
+        ctx.fill();
+      }
+    });
+
+    sseVal.textContent = fmt(sse(w1,w2,bias));
+    equationText.innerHTML = `price = <span class="num">${w1.toFixed(1)}</span> &middot; sqft(100s) + <span class="num">${w2.toFixed(2)}</span> &middot; age + <span class="num">${Math.round(bias)}</span>`;
+
+    if(predictionPoint){
+      const predPrice = w1*predictionPoint.x1 + w2*predictionPoint.x2 + bias;
+      predictedPriceEl.textContent = fmtMoney(predPrice);
+      predictResult.classList.add('show');
+      const outOfRange = predictionPoint.sqft < X1_MIN*100 || predictionPoint.sqft > X1_MAX*100 ||
+                          predictionPoint.age < X2_MIN || predictionPoint.age > X2_MAX;
+      predictNote.textContent = outOfRange
+        ? 'Heads up: this is outside your data range, so the model is extrapolating.'
+        : '';
+    }
+
+    tableBody.innerHTML = '';
+    points.forEach((p, i) => {
+      const predY = predict(p, w1, w2, bias);
+      const err = p.y - predY;
+      const errCls = Math.abs(err) < 8 ? 'err-tiny' : Math.abs(err) > 30 ? 'err-big' : '';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>House ${i+1}${p.added ? ' *' : ''}</td>
+        <td>${p.sqft.toLocaleString()}</td>
+        <td>${p.age}</td>
+        <td>${fmtMoney(p.y)}</td>
+        <td>${fmtMoney(predY)}</td>
+        <td class="${errCls}">${fmtMoney(Math.abs(err))}</td>
+      `;
+      tableBody.appendChild(tr);
+    });
+  }
+
+  // ---- responsive canvas resolution ----
+  function resizeCanvas(){
+    const displayWidth = canvas.clientWidth || 640;
+    const displayHeight = Math.round(displayWidth * (620/800));
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = displayWidth*dpr;
+    canvas.height = displayHeight*dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    baseScale = displayWidth/800*150;
+  }
+  window.addEventListener('resize', () => { resizeCanvas(); });
+
+  // ---- control wiring ----
+  function syncControls(){
+    w1Input.value = w1; w2Input.value = w2; biasInput.value = bias;
+    w1Val.textContent = w1.toFixed(1);
+    w2Val.textContent = w2.toFixed(2);
+    biasVal.textContent = Math.round(bias);
+  }
+
+  w1Input.addEventListener('input', () => { w1 = parseFloat(w1Input.value); w1Val.textContent = w1.toFixed(1); });
+  w2Input.addEventListener('input', () => { w2 = parseFloat(w2Input.value); w2Val.textContent = w2.toFixed(2); });
+  biasInput.addEventListener('input', () => { bias = parseFloat(biasInput.value); biasVal.textContent = Math.round(bias); });
+
+  function setSlidersDisabled(disabled){
+    w1Input.disabled = disabled; w2Input.disabled = disabled; biasInput.disabled = disabled;
+  }
+
+  predictBtn.addEventListener('click', () => {
+    const sqft = parseFloat(predictSqftInput.value);
+    const age = parseFloat(predictAgeInput.value);
+    if(isNaN(sqft) || isNaN(age)) return;
+    predictionPoint = { sqft, age, x1: sqft/100, x2: age };
+    const predPrice = w1*predictionPoint.x1 + w2*predictionPoint.x2 + bias;
+    statusRegion.textContent = `Predicted price for a ${sqft} sq ft, ${age}-year-old house: ${fmtMoney(predPrice)}.`;
+  });
+
+  function updateRevealState(){
+    revealBtn.disabled = points.length < 3 || animating;
+  }
+
+  resetDataBtn.addEventListener('click', () => {
+    points = presetPoints.map(p => ({...p}));
+    w1 = 0; w2 = 0; bias = 50;
+    syncControls();
+    compare.classList.remove('show');
+    updateRevealState();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    points = [];
+    compare.classList.remove('show');
+    updateRevealState();
+  });
+
+  addHouseBtn.addEventListener('click', () => {
+    const sqftIn = document.getElementById('addSqft');
+    const ageIn = document.getElementById('addAge');
+    const priceIn = document.getElementById('addPrice');
+    const sqft = parseFloat(sqftIn.value);
+    const age = parseFloat(ageIn.value);
+    const price = parseFloat(priceIn.value);
+    if(isNaN(sqft) || isNaN(age) || isNaN(price)) return;
+    points.push({ sqft, age, y:price, x1: sqft/100, x2: age, added:true });
+    sqftIn.value = ''; ageIn.value = ''; priceIn.value = '';
+    compare.classList.remove('show');
+    updateRevealState();
+  });
+
+  function easeOutCubic(t){ return 1 - Math.pow(1-t, 3); }
+
+  let revealAnim = null; // { startTime, duration, from:{w1,w2,b}, to:{w1,w2,b}, manualSSE, optimalSSE }
+
+  revealBtn.addEventListener('click', () => {
+    const target = bestFit();
+    if(!target) return;
+    const manualSSE = sse(w1, w2, bias);
+    const optimalSSE = sse(target.w1, target.w2, target.b);
+
+    animating = true;
+    updateRevealState();
+    setSlidersDisabled(true);
+
+    if(reduceMotion){
+      w1 = target.w1; w2 = target.w2; bias = target.b;
+      syncControls();
+      finishReveal(manualSSE, optimalSSE);
+      animating = false;
+      updateRevealState();
+      setSlidersDisabled(false);
+      return;
+    }
+
+    revealAnim = {
+      startTime: performance.now(),
+      duration: 900,
+      from: { w1, w2, b:bias },
+      to: target,
+      manualSSE, optimalSSE
+    };
+  });
+
+  function finishReveal(manualSSE, optimalSSE){
+    yourSSE.textContent = fmt(manualSSE);
+    bestSSE.textContent = fmt(optimalSSE);
+
+    let verdict;
+    const pctOff = ((manualSSE - optimalSSE) / (optimalSSE || 1)) * 100;
+    if(pctOff < 3){
+      verdict = "Remarkably close \u2014 your three numbers nearly matched the mathematically optimal plane.";
+    } else if(pctOff < 25){
+      verdict = `Solid guess. The best-fit plane reduced error by about ${fmt(pctOff)}% compared to yours.`;
+    } else {
+      verdict = `The best-fit plane cut your error by about ${fmt(pctOff)}%. With three numbers to balance in a space you can't fully see at once, this is exactly the kind of search that's tedious by hand and instant for an algorithm.`;
+    }
+    verdictText.textContent = verdict;
+    compare.classList.add('show');
+    statusRegion.textContent = `Best fit revealed. Your error was ${fmt(manualSSE)}. Optimal error is ${fmt(optimalSSE)}.`;
+  }
+
+  // ---- unified render/animation loop ----
+  function tick(now){
+    if(revealAnim){
+      const t = Math.min(1, (now - revealAnim.startTime)/revealAnim.duration);
+      const e = easeOutCubic(t);
+      w1 = revealAnim.from.w1 + (revealAnim.to.w1 - revealAnim.from.w1)*e;
+      w2 = revealAnim.from.w2 + (revealAnim.to.w2 - revealAnim.from.w2)*e;
+      bias = revealAnim.from.b + (revealAnim.to.b - revealAnim.from.b)*e;
+      if(t >= 1){
+        w1 = revealAnim.to.w1; w2 = revealAnim.to.w2; bias = revealAnim.to.b;
+        syncControls();
+        finishReveal(revealAnim.manualSSE, revealAnim.optimalSSE);
+        animating = false;
+        updateRevealState();
+        setSlidersDisabled(false);
+        revealAnim = null;
+      }
+    } else if(!reduceMotion && !userInteracted && !dragging){
+      theta += 0.0018;
+    }
+    draw();
+    requestAnimationFrame(tick);
+  }
+
+  // ---- init ----
+  syncControls();
+  updateRevealState();
+  resizeCanvas();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

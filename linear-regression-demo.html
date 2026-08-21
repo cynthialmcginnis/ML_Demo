@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finding the Line That Fits — Supervised Learning Demo</title>
+<style>
+  :root{
+    --paper:#F6F1E7;
+    --panel:#FBF8F2;
+    --ink:#1B2430;
+    --ink-soft:#4B5568;
+    --grid:#D8D2C2;
+    --teal:#3E6E75;
+    --teal-soft:#DCE9EA;
+    --amber:#C97F2B;
+    --amber-soft:#F3E1C8;
+    --brick:#B23A2E;
+    --sage:#4F7A5A;
+    --sage-soft:#DCE8DF;
+    --violet:#7A5FA6;
+    --violet-soft:#E9E2F2;
+    --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--font-body);
+    line-height:1.5;
+  }
+
+  .wrap{
+    max-width:1080px;
+    margin:0 auto;
+    padding:32px 20px 64px;
+  }
+
+  header.hero{
+    border-bottom:1px solid var(--grid);
+    padding-bottom:24px;
+    margin-bottom:28px;
+  }
+
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:12px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--teal);
+    margin:0 0 10px;
+  }
+
+  h1{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:clamp(28px, 4vw, 42px);
+    line-height:1.1;
+    margin:0 0 12px;
+  }
+
+  .lede{
+    max-width:640px;
+    color:var(--ink-soft);
+    font-size:16px;
+    margin:0;
+  }
+
+  .steps{
+    display:flex;
+    flex-wrap:wrap;
+    gap:18px;
+    margin:22px 0 0;
+    padding:0;
+    list-style:none;
+  }
+
+  .steps li{
+    flex:1 1 220px;
+    background:var(--panel);
+    border:1px solid var(--grid);
+    border-radius:4px;
+    padding:12px 14px;
+    font-size:14px;
+    color:var(--ink-soft);
+  }
+
+  .steps li strong{
+    display:block;
+    font-family:var(--font-mono);
+    font-size:12px;
+    color:var(--teal);
+    margin-bottom:4px;
+  }
+
+  .stage{
+    display:grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap:24px;
+    align-items:start;
+  }
+
+  @media (max-width: 780px){
+    .stage{ grid-template-columns: 1fr; }
+  }
+
+  .plot-card, .panel-card{
+    background:var(--panel);
+    border:1px solid var(--grid);
+    border-radius:6px;
+    padding:18px;
+  }
+
+  .plot-card h2, .panel-card h2{
+    font-family:var(--font-display);
+    font-size:19px;
+    margin:0 0 4px;
+  }
+
+  .plot-hint{
+    font-size:13px;
+    color:var(--ink-soft);
+    margin:0 0 12px;
+  }
+
+  svg#plot{
+    width:100%;
+    height:auto;
+    display:block;
+    cursor:crosshair;
+    background:
+      linear-gradient(var(--grid) 1px, transparent 1px) 50px 20px / 57px 36px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 50px 20px / 57px 36px;
+    background-color: #FEFDFA;
+    border:1px solid var(--grid);
+    border-radius:3px;
+  }
+
+  .axis-label{
+    font-family:var(--font-mono);
+    font-size:11px;
+    fill:var(--ink-soft);
+  }
+
+  .data-point{ fill:var(--teal); stroke:var(--panel); stroke-width:1.5; }
+  .data-point.added{ fill:var(--amber); }
+
+  .residual-line{ stroke:var(--brick); stroke-width:1.5; opacity:0.55; }
+  .residual-line.tiny{ stroke:var(--sage); }
+
+  .fit-line{ stroke:var(--teal); stroke-width:2.5; }
+
+  .panel-card{ display:flex; flex-direction:column; gap:18px; }
+
+  .control{ display:flex; flex-direction:column; gap:6px; }
+
+  .control label{
+    font-size:13px;
+    font-weight:600;
+    display:flex;
+    justify-content:space-between;
+  }
+
+  .control label .val{
+    font-family:var(--font-mono);
+    color:var(--teal);
+  }
+
+  input[type="range"]{
+    width:100%;
+    accent-color:var(--teal);
+  }
+
+  input[type="range"]:focus-visible,
+  button:focus-visible{
+    outline:2px solid var(--amber);
+    outline-offset:2px;
+  }
+
+  .sse-readout{
+    background:var(--teal-soft);
+    border-radius:4px;
+    padding:14px 16px;
+    text-align:center;
+  }
+
+  .sse-readout .label{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--ink-soft);
+    font-family:var(--font-mono);
+  }
+
+  .sse-readout .number{
+    font-family:var(--font-mono);
+    font-size:30px;
+    font-weight:600;
+    color:var(--ink);
+  }
+
+  .btn-row{ display:flex; flex-direction:column; gap:10px; }
+
+  button{
+    font-family:var(--font-body);
+    font-size:14px;
+    font-weight:600;
+    padding:10px 14px;
+    border-radius:4px;
+    border:1px solid var(--grid);
+    background:#fff;
+    color:var(--ink);
+    cursor:pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+
+  button:hover{ background:var(--amber-soft); }
+  button:active{ transform: translateY(1px); }
+
+  button.primary{
+    background:var(--teal);
+    color:#fff;
+    border-color:var(--teal);
+  }
+  button.primary:hover{ background:#345c62; }
+  button.primary:disabled{
+    background:var(--grid);
+    border-color:var(--grid);
+    color:var(--ink-soft);
+    cursor:not-allowed;
+  }
+
+  .predict-box{
+    border-top:1px dashed var(--grid);
+    padding-top:14px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+
+  .predict-box input[type="number"]{
+    width:100%;
+    padding:8px 10px;
+    border:1px solid var(--grid);
+    border-radius:4px;
+    font-family:var(--font-mono);
+    font-size:14px;
+  }
+  .predict-box input[type="number"]:focus-visible{
+    outline:2px solid var(--amber);
+    outline-offset:2px;
+  }
+
+  .predict-result{
+    display:none;
+    background:var(--amber-soft);
+    border-radius:4px;
+    padding:12px 14px;
+    text-align:center;
+  }
+  .predict-result.show{ display:block; }
+  .predict-result .label{
+    font-size:12px; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--ink-soft); font-family:var(--font-mono);
+  }
+  .predict-result .number{
+    font-family:var(--font-mono); font-size:26px; font-weight:600; color:var(--ink);
+  }
+  .predict-result .note{
+    font-size:12px; color:var(--brick); margin-top:6px;
+  }
+
+  .predict-marker{ fill:var(--violet, #7A5FA6); stroke:#fff; stroke-width:2; }
+  .predict-guide{ stroke:var(--ink-soft); stroke-width:1; stroke-dasharray:4 3; opacity:0.6; }
+
+  .compare{
+    display:none;
+    border-top:1px dashed var(--grid);
+    padding-top:14px;
+    font-size:14px;
+  }
+
+  .compare.show{ display:block; }
+
+  .compare .row{
+    display:flex;
+    justify-content:space-between;
+    font-family:var(--font-mono);
+    font-size:13px;
+    margin-bottom:6px;
+  }
+
+  .compare .verdict{
+    margin-top:10px;
+    padding:10px 12px;
+    background:var(--sage-soft);
+    border-radius:4px;
+    font-size:13.5px;
+    color:var(--ink);
+  }
+
+  .explainer{
+    margin-top:32px;
+    background:var(--panel);
+    border:1px solid var(--grid);
+    border-radius:6px;
+    padding:20px 22px;
+  }
+
+  .explainer h2{
+    font-family:var(--font-display);
+    font-size:20px;
+    margin:0 0 10px;
+  }
+
+  .explainer p{
+    color:var(--ink-soft);
+    font-size:15px;
+    margin:0 0 10px;
+  }
+
+  .explainer dl{
+    display:grid;
+    grid-template-columns: 140px 1fr;
+    gap:6px 14px;
+    margin:14px 0 0;
+    font-size:14px;
+  }
+
+  .explainer dt{
+    font-family:var(--font-mono);
+    font-weight:600;
+    color:var(--teal);
+  }
+
+  .explainer dd{
+    margin:0;
+    color:var(--ink);
+  }
+
+  .sr-only{
+    position:absolute;
+    width:1px; height:1px;
+    padding:0; margin:-1px;
+    overflow:hidden;
+    clip:rect(0,0,0,0);
+    white-space:nowrap;
+    border:0;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    button{ transition:none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Unit 2 &middot; Machine Learning &amp; Deep Learning</p>
+    <h1>Finding the Line That Fits</h1>
+    <p class="lede">A supervised learning model doesn't guess. It searches for the line, curve, or boundary that makes the smallest possible error against examples it's already seen. This demo makes that search visible &mdash; you'll do it by hand, then watch the computer do it instantly.</p>
+
+    <ol class="steps">
+      <li><strong>Step 1</strong>Drag the two sliders to draw your own best guess at a line through the data.</li>
+      <li><strong>Step 2</strong>Watch the error number (SSE) as you adjust &mdash; lower is better.</li>
+      <li><strong>Step 3</strong>Click "Reveal Best-Fit Line" to see the mathematically optimal answer and how close you got.</li>
+    </ol>
+  </header>
+
+  <section class="stage">
+    <div class="plot-card">
+      <h2>Study Hours vs. Exam Score</h2>
+      <p class="plot-hint">Click anywhere on the grid to add your own data point. Teal dots are the starting dataset; amber dots are ones you've added.</p>
+      <svg id="plot" viewBox="0 0 640 420" role="img" aria-label="Scatter plot of study hours versus exam score with an adjustable regression line"></svg>
+    </div>
+
+    <div class="panel-card">
+      <div>
+        <h2>Your line</h2>
+        <p class="plot-hint">y = m&middot;x + b</p>
+      </div>
+
+      <div class="control">
+        <label for="slope">Slope (m) <span class="val" id="slopeVal">0.00</span></label>
+        <input type="range" id="slope" min="-5" max="15" step="0.1" value="0">
+      </div>
+
+      <div class="control">
+        <label for="intercept">Intercept (b) <span class="val" id="interceptVal">50</span></label>
+        <input type="range" id="intercept" min="0" max="100" step="1" value="50">
+      </div>
+
+      <div class="sse-readout">
+        <div class="label">Sum of Squared Error</div>
+        <div class="number" id="sseVal">&mdash;</div>
+      </div>
+
+      <div class="btn-row">
+        <button class="primary" id="revealBtn">Reveal Best-Fit Line</button>
+        <button id="resetDataBtn">Reset to Example Data</button>
+        <button id="clearBtn">Clear All Points</button>
+      </div>
+
+      <div class="compare" id="compare" aria-live="polite">
+        <div class="row"><span>Your line's error</span><span id="yourSSE">&mdash;</span></div>
+        <div class="row"><span>Best possible error</span><span id="bestSSE">&mdash;</span></div>
+        <div class="verdict" id="verdictText"></div>
+      </div>
+
+      <div class="predict-box">
+        <strong style="font-size:13px;">Make a prediction</strong>
+        <div class="control">
+          <label for="predictX">Hours Studied</label>
+          <input type="number" id="predictX" min="0" max="20" step="0.5" placeholder="e.g. 6">
+        </div>
+        <button id="predictBtn">Predict Exam Score</button>
+        <div class="predict-result" id="predictResult">
+          <div class="label">Predicted Exam Score</div>
+          <div class="number" id="predictedY">&mdash;</div>
+          <div class="note" id="predictNote"></div>
+        </div>
+      </div>
+
+      <span class="sr-only" id="statusRegion" aria-live="polite"></span>
+    </div>
+  </section>
+
+  <section class="explainer">
+    <h2>What just happened</h2>
+    <p>You picked a slope and an intercept, and the demo measured how wrong that line was for every data point, then squared each miss and added them up. That total is the <strong>loss</strong> &mdash; a single number that says how bad your model is. Smaller is better.</p>
+    <p>When you clicked "Reveal," the demo didn't guess. It solved for the exact slope and intercept that make that loss as small as it can possibly be, given this data. A real training algorithm does the same search, just automatically and thousands of times per second &mdash; nudging the line a little, checking if the loss went down, and repeating until it can't improve anymore. That process is called <strong>gradient descent</strong>, and it's how most machine learning models "learn."</p>
+    <dl>
+      <dt>Features</dt><dd>The input the model uses to predict &mdash; here, hours studied.</dd>
+      <dt>Label</dt><dd>The known correct answer for each example &mdash; here, the actual exam score.</dd>
+      <dt>Model</dt><dd>The line itself: a simple rule, y = m&middot;x + b, for turning a feature into a prediction.</dd>
+      <dt>Loss function</dt><dd>The number that scores how wrong the model is &mdash; here, Sum of Squared Error.</dd>
+      <dt>Training</dt><dd>The search for the m and b that make the loss as small as possible.</dd>
+    </dl>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  const svg = document.getElementById('plot');
+  const NS = 'http://www.w3.org/2000/svg';
+
+  // Plot geometry
+  const W = 640, H = 420;
+  const padL = 50, padR = 20, padT = 20, padB = 40;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const xDomain = [0, 11];   // hours studied
+  const yDomain = [0, 105];  // exam score
+
+  function xScale(x){ return padL + (x - xDomain[0]) / (xDomain[1]-xDomain[0]) * plotW; }
+  function yScale(y){ return padT + (1 - (y - yDomain[0]) / (yDomain[1]-yDomain[0])) * plotH; }
+  function invScale(px, py){
+    const x = xDomain[0] + (px - padL) / plotW * (xDomain[1]-xDomain[0]);
+    const y = yDomain[0] + (1 - (py - padT) / plotH) * (yDomain[1]-yDomain[0]);
+    return {x, y};
+  }
+
+  const presetPoints = [
+    {x:1,y:52},{x:2,y:58},{x:2,y:63},{x:3,y:61},{x:4,y:68},{x:4,y:72},
+    {x:5,y:74},{x:6,y:78},{x:7,y:80},{x:8,y:87},{x:9,y:90},{x:10,y:96}
+  ].map(p => ({...p, added:false}));
+
+  let points = presetPoints.map(p => ({...p}));
+
+  const slopeInput = document.getElementById('slope');
+  const interceptInput = document.getElementById('intercept');
+  const slopeVal = document.getElementById('slopeVal');
+  const interceptVal = document.getElementById('interceptVal');
+  const sseVal = document.getElementById('sseVal');
+  const revealBtn = document.getElementById('revealBtn');
+  const resetDataBtn = document.getElementById('resetDataBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const compare = document.getElementById('compare');
+  const yourSSE = document.getElementById('yourSSE');
+  const bestSSE = document.getElementById('bestSSE');
+  const verdictText = document.getElementById('verdictText');
+  const statusRegion = document.getElementById('statusRegion');
+  const predictXInput = document.getElementById('predictX');
+  const predictBtn = document.getElementById('predictBtn');
+  const predictResult = document.getElementById('predictResult');
+  const predictedYEl = document.getElementById('predictedY');
+  const predictNote = document.getElementById('predictNote');
+
+  let m = parseFloat(slopeInput.value);
+  let b = parseFloat(interceptInput.value);
+  let animating = false;
+  let predictionX = null;
+
+  function sse(m, b){
+    return points.reduce((sum, p) => {
+      const err = p.y - (m * p.x + b);
+      return sum + err * err;
+    }, 0);
+  }
+
+  function bestFit(){
+    const n = points.length;
+    if(n < 2) return null;
+    let sumX=0, sumY=0, sumXY=0, sumXX=0;
+    points.forEach(p => { sumX+=p.x; sumY+=p.y; sumXY+=p.x*p.y; sumXX+=p.x*p.x; });
+    const denom = n*sumXX - sumX*sumX;
+    if(denom === 0) return null;
+    const mBest = (n*sumXY - sumX*sumY) / denom;
+    const bBest = (sumY - mBest*sumX) / n;
+    return {m:mBest, b:bBest};
+  }
+
+  function fmt(n){
+    return n.toLocaleString(undefined, {maximumFractionDigits:1, minimumFractionDigits:0});
+  }
+
+  function el(tag, attrs){
+    const e = document.createElementNS(NS, tag);
+    for(const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function render(){
+    svg.innerHTML = '';
+
+    // axes
+    const xAxis = el('line', {x1:padL, y1:H-padB, x2:W-padR, y2:H-padB, stroke:'#4B5568', 'stroke-width':1});
+    const yAxis = el('line', {x1:padL, y1:padT, x2:padL, y2:H-padB, stroke:'#4B5568', 'stroke-width':1});
+    svg.appendChild(xAxis); svg.appendChild(yAxis);
+
+    const xLabel = el('text', {x: padL + plotW/2, y: H-6, 'text-anchor':'middle', class:'axis-label'});
+    xLabel.textContent = 'Hours Studied';
+    svg.appendChild(xLabel);
+
+    const yLabel = el('text', {x: 16, y: padT + plotH/2, 'text-anchor':'middle', class:'axis-label', transform:`rotate(-90, 16, ${padT+plotH/2})`});
+    yLabel.textContent = 'Exam Score';
+    svg.appendChild(yLabel);
+
+    // tick labels
+    for(let xt=0; xt<=10; xt+=2){
+      const t = el('text', {x:xScale(xt), y:H-padB+16, 'text-anchor':'middle', class:'axis-label'});
+      t.textContent = xt;
+      svg.appendChild(t);
+    }
+    for(let yt=0; yt<=100; yt+=20){
+      const t = el('text', {x:padL-8, y:yScale(yt)+4, 'text-anchor':'end', class:'axis-label'});
+      t.textContent = yt;
+      svg.appendChild(t);
+    }
+
+    // residuals
+    const errThreshold = 3;
+    points.forEach(p => {
+      const predY = m*p.x + b;
+      const err = Math.abs(p.y - predY);
+      const line = el('line', {
+        x1:xScale(p.x), y1:yScale(p.y),
+        x2:xScale(p.x), y2:yScale(predY),
+        class: 'residual-line' + (err < errThreshold ? ' tiny' : '')
+      });
+      svg.appendChild(line);
+    });
+
+    // fit line, clipped to plot bounds
+    const yAtLeft = m*xDomain[0]+b;
+    const yAtRight = m*xDomain[1]+b;
+    const line = el('line', {
+      x1:xScale(xDomain[0]), y1:yScale(clamp(yAtLeft, yDomain[0]-1000, yDomain[1]+1000)),
+      x2:xScale(xDomain[1]), y2:yScale(clamp(yAtRight, yDomain[0]-1000, yDomain[1]+1000)),
+      class:'fit-line'
+    });
+    svg.appendChild(line);
+
+    // points
+    points.forEach(p => {
+      const c = el('circle', {
+        cx:xScale(p.x), cy:yScale(p.y), r:6,
+        class: 'data-point' + (p.added ? ' added' : '')
+      });
+      svg.appendChild(c);
+    });
+
+    // prediction marker
+    if(predictionX !== null){
+      const predY = m*predictionX + b;
+      const clampedX = clamp(predictionX, xDomain[0], xDomain[1]);
+      const clampedY = clamp(predY, yDomain[0], yDomain[1]);
+      const mx = xScale(clampedX), my = yScale(clampedY);
+      svg.appendChild(el('line', {x1:mx, y1:H-padB, x2:mx, y2:my, class:'predict-guide'}));
+      svg.appendChild(el('line', {x1:padL, y1:my, x2:mx, y2:my, class:'predict-guide'}));
+      svg.appendChild(el('circle', {cx:mx, cy:my, r:7, class:'predict-marker'}));
+
+      predictedYEl.textContent = fmt(predY);
+      predictResult.classList.add('show');
+      const outOfRange = predictionX < xDomain[0] || predictionX > xDomain[1] + 0.001;
+      predictNote.textContent = outOfRange
+        ? 'Heads up: this is outside the hours in your data, so the model is extrapolating.'
+        : '';
+    }
+
+    sseVal.textContent = fmt(sse(m,b));
+  }
+
+  function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+
+  function syncControls(){
+    slopeInput.value = m;
+    interceptInput.value = b;
+    slopeVal.textContent = m.toFixed(2);
+    interceptVal.textContent = Math.round(b);
+  }
+
+  slopeInput.addEventListener('input', () => {
+    m = parseFloat(slopeInput.value);
+    slopeVal.textContent = m.toFixed(2);
+    render();
+  });
+
+  interceptInput.addEventListener('input', () => {
+    b = parseFloat(interceptInput.value);
+    interceptVal.textContent = Math.round(b);
+    render();
+  });
+
+  svg.addEventListener('click', (e) => {
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX; pt.y = e.clientY;
+    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+    if(svgP.x < padL || svgP.x > W-padR || svgP.y < padT || svgP.y > H-padB) return;
+    const data = invScale(svgP.x, svgP.y);
+    points.push({x: Math.round(data.x*10)/10, y: Math.round(data.y*10)/10, added:true});
+    compare.classList.remove('show');
+    updateRevealState();
+    render();
+  });
+
+  resetDataBtn.addEventListener('click', () => {
+    points = presetPoints.map(p => ({...p}));
+    m = 0; b = 50;
+    syncControls();
+    compare.classList.remove('show');
+    updateRevealState();
+    render();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    points = [];
+    compare.classList.remove('show');
+    updateRevealState();
+    render();
+  });
+
+  predictBtn.addEventListener('click', () => {
+    const val = parseFloat(predictXInput.value);
+    if(isNaN(val)) return;
+    predictionX = val;
+    render();
+    statusRegion.textContent = `Predicted exam score for ${val} hours studied: ${fmt(m*val+b)}.`;
+  });
+
+  function updateRevealState(){
+    revealBtn.disabled = points.length < 2 || animating;
+  }
+
+  function easeOutCubic(t){ return 1 - Math.pow(1-t, 3); }
+
+  revealBtn.addEventListener('click', () => {
+    const target = bestFit();
+    if(!target) return;
+
+    const startM = m, startB = b;
+    const manualSSE = sse(m,b);
+    const optimalSSE = sse(target.m, target.b);
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    animating = true;
+    updateRevealState();
+
+    function finish(){
+      m = target.m; b = target.b;
+      syncControls();
+      render();
+      animating = false;
+      updateRevealState();
+
+      yourSSE.textContent = fmt(manualSSE);
+      bestSSE.textContent = fmt(optimalSSE);
+
+      let verdict;
+      if(manualSSE === 0){
+        verdict = "There's no data yet to compare against — add points and try again.";
+      } else {
+        const pctOff = ((manualSSE - optimalSSE) / (optimalSSE || 1)) * 100;
+        if(pctOff < 3){
+          verdict = "Remarkably close — your line was nearly identical to the mathematically optimal one.";
+        } else if(pctOff < 25){
+          verdict = `Solid guess. The best-fit line reduced error by about ${fmt(pctOff)}% compared to yours.`;
+        } else {
+          verdict = `The best-fit line cut your error by about ${fmt(pctOff)}%. This is exactly the gap a training algorithm closes automatically.`;
+        }
+      }
+      verdictText.textContent = verdict;
+      compare.classList.add('show');
+      statusRegion.textContent = `Best fit revealed. Your error was ${fmt(manualSSE)}. Optimal error is ${fmt(optimalSSE)}.`;
+    }
+
+    if(reduceMotion){
+      finish();
+      return;
+    }
+
+    const duration = 900;
+    const startTime = performance.now();
+
+    function frame(now){
+      const t = Math.min(1, (now - startTime) / duration);
+      const e = easeOutCubic(t);
+      m = startM + (target.m - startM) * e;
+      b = startB + (target.b - startB) * e;
+      render();
+      if(t < 1){
+        requestAnimationFrame(frame);
+      } else {
+        finish();
+      }
+    }
+    requestAnimationFrame(frame);
+  });
+
+  // init
+  syncControls();
+  updateRevealState();
+  render();
+})();
+</script>
+</body>
+</html>

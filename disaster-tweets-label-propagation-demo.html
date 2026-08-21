@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Real Tweets, Real Ambiguity — Disaster Tweet Classification Demo</title>
+<style>
+  :root{
+    --paper:#F6F1E7;
+    --panel:#FBF8F2;
+    --ink:#1B2430;
+    --ink-soft:#4B5568;
+    --grid:#D8D2C2;
+    --teal:#3E6E75;
+    --teal-soft:#DCE9EA;
+    --amber:#C97F2B;
+    --amber-soft:#F3E1C8;
+    --brick:#B23A2E;
+    --brick-soft:#F2DBD8;
+    --sage:#4F7A5A;
+    --sage-soft:#DCE8DF;
+    --violet:#7A5FA6;
+    --violet-soft:#E9E2F2;
+    --unlabeled:#B9B2A0;
+    --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  }
+
+  *{ box-sizing: border-box; }
+  body{ margin:0; background:var(--paper); color:var(--ink); font-family:var(--font-body); line-height:1.5; }
+  .wrap{ max-width:1120px; margin:0 auto; padding:32px 20px 64px; }
+
+  header.hero{ border-bottom:1px solid var(--grid); padding-bottom:24px; margin-bottom:28px; }
+  .eyebrow{
+    font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em;
+    text-transform:uppercase; color:var(--brick); margin:0 0 10px;
+  }
+  h1{
+    font-family:var(--font-display); font-weight:700;
+    font-size:clamp(28px, 4vw, 42px); line-height:1.1; margin:0 0 12px;
+  }
+  .lede{ max-width:680px; color:var(--ink-soft); font-size:16px; margin:0; }
+
+  .source-note{
+    margin-top:14px; padding:10px 14px; background:var(--panel);
+    border:1px solid var(--grid); border-left:3px solid var(--brick);
+    border-radius:4px; font-size:13px; color:var(--ink-soft); max-width:680px;
+  }
+
+  .steps{ display:flex; flex-wrap:wrap; gap:18px; margin:22px 0 0; padding:0; list-style:none; }
+  .steps li{
+    flex:1 1 220px; background:var(--panel); border:1px solid var(--grid);
+    border-radius:4px; padding:12px 14px; font-size:14px; color:var(--ink-soft);
+  }
+  .steps li strong{ display:block; font-family:var(--font-mono); font-size:12px; color:var(--brick); margin-bottom:4px; }
+
+  .stage{ display:grid; grid-template-columns: 1.5fr 1fr; gap:24px; align-items:start; }
+  @media (max-width: 860px){ .stage{ grid-template-columns: 1fr; } }
+
+  .plot-card, .panel-card{ background:var(--panel); border:1px solid var(--grid); border-radius:6px; padding:18px; }
+  .plot-card h2, .panel-card h2{ font-family:var(--font-display); font-size:19px; margin:0 0 4px; }
+  .plot-hint{ font-size:13px; color:var(--ink-soft); margin:0 0 12px; }
+
+  .legend{
+    display:flex; gap:16px; font-size:12px; color:var(--ink-soft);
+    margin-bottom:10px; flex-wrap:wrap; align-items:center;
+  }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .swatch{ width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .swatch.seed{ background:var(--brick); border:2px solid var(--ink); }
+  .swatch.disaster{ background:var(--brick); }
+  .swatch.casual{ background:var(--teal); }
+  .swatch.unlabeled{ background:var(--unlabeled); }
+
+  svg#plot{
+    width:100%; height:auto; display:block; cursor:crosshair;
+    background:#FEFDFA; border:1px solid var(--grid); border-radius:3px;
+  }
+  .axis-label{ font-family:var(--font-mono); font-size:11px; fill:var(--ink-soft); }
+  .propagation-line{ stroke-width:1; opacity:0.35; }
+  .tweet-point{ cursor:pointer; }
+
+  .word-list-box{
+    margin-top:12px; padding:12px 14px; background:#FEFDFA;
+    border:1px solid var(--grid); border-radius:4px; font-size:12.5px;
+  }
+  .word-list-box .row{ display:flex; gap:8px; margin-bottom:6px; align-items:baseline; }
+  .word-list-box .row:last-child{ margin-bottom:0; }
+  .word-list-box .tag{
+    font-family:var(--font-mono); font-size:11px; text-transform:uppercase;
+    letter-spacing:0.06em; color:var(--ink-soft); flex-shrink:0; width:74px;
+  }
+  .word-chip{ display:inline-block; padding:2px 8px; border-radius:10px; font-size:12px; margin:2px 3px 2px 0; }
+  .word-chip.pos{ background:var(--brick-soft); color:var(--brick); }
+  .word-chip.neg{ background:var(--teal-soft); color:var(--teal); }
+
+  .example-reviews{ margin-top:12px; display:flex; flex-direction:column; gap:8px; }
+  .example-card{
+    padding:10px 12px; background:#FEFDFA; border:1px solid var(--grid);
+    border-left:3px solid var(--ink-soft); border-radius:4px; font-size:13px;
+  }
+  .example-card .tag{
+    font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase;
+    letter-spacing:0.06em; color:var(--ink-soft); display:block; margin-bottom:3px;
+  }
+  .example-card.disaster{ border-left-color:var(--brick); }
+  .example-card.casual{ border-left-color:var(--teal); }
+  .example-card.figurative{ border-left-color:var(--violet); }
+  .example-card.neutral{ border-left-color:var(--unlabeled); }
+
+  .inspect-box{ border-top:1px dashed var(--grid); padding-top:14px; display:flex; flex-direction:column; gap:8px; }
+  .inspect-box .empty{ font-size:13px; color:var(--ink-soft); }
+  .inspect-box .review-title{ font-size:13px; font-weight:600; }
+  .inspect-box .word-group{ font-size:12.5px; }
+  .inspect-box .word-group .tag{ font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); display:block; margin-bottom:4px; }
+
+  .panel-card{ display:flex; flex-direction:column; gap:16px; }
+  .control{ display:flex; flex-direction:column; gap:6px; }
+  .control label{ font-size:13px; font-weight:600; display:flex; justify-content:space-between; }
+  .control label .val{ font-family:var(--font-mono); color:var(--brick); }
+  input[type="range"]{ width:100%; accent-color:var(--brick); }
+  input[type="range"]:disabled{ opacity:0.6; }
+  input[type="range"]:focus-visible, input[type="number"]:focus-visible, button:focus-visible{
+    outline:2px solid var(--amber); outline-offset:2px;
+  }
+
+  .sse-readout{ background:var(--brick-soft); border-radius:4px; padding:14px 16px; text-align:center; }
+  .sse-readout .label{
+    font-size:12px; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--ink-soft); font-family:var(--font-mono);
+  }
+  .sse-readout .number{ font-family:var(--font-mono); font-size:26px; font-weight:600; color:var(--ink); }
+  .sse-readout .sub{ font-size:12px; color:var(--ink-soft); margin-top:4px; }
+
+  .btn-row{ display:flex; flex-direction:column; gap:10px; }
+  button{
+    font-family:var(--font-body); font-size:14px; font-weight:600; padding:10px 14px;
+    border-radius:4px; border:1px solid var(--grid); background:#fff; color:var(--ink);
+    cursor:pointer; transition: background 0.15s ease, transform 0.1s ease;
+  }
+  button:hover{ background:var(--amber-soft); }
+  button:active{ transform: translateY(1px); }
+  button.primary{ background:var(--brick); color:#fff; border-color:var(--brick); }
+  button.primary:hover{ background:#8f2e24; }
+  button:disabled{ background:var(--grid); border-color:var(--grid); color:var(--ink-soft); cursor:not-allowed; }
+
+  .compare{ display:none; border-top:1px dashed var(--grid); padding-top:14px; font-size:14px; }
+  .compare.show{ display:block; }
+  .compare .row{ display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:13px; margin-bottom:6px; }
+  .compare .verdict{ margin-top:10px; padding:10px 12px; background:var(--sage-soft); border-radius:4px; font-size:13.5px; color:var(--ink); }
+
+  .predict-box{ border-top:1px dashed var(--grid); padding-top:14px; display:flex; flex-direction:column; gap:8px; }
+  .predict-box textarea{
+    width:100%; padding:8px 10px; border:1px solid var(--grid); border-radius:4px;
+    font-family:var(--font-body); font-size:13px; resize:vertical;
+  }
+  .predict-result{ display:none; border-radius:4px; padding:12px 14px; text-align:center; }
+  .predict-result.show{ display:block; }
+  .predict-result .label{
+    font-size:12px; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--ink-soft); font-family:var(--font-mono);
+  }
+  .predict-result .number{ font-family:var(--font-mono); font-size:20px; font-weight:600; }
+
+  .explainer{ margin-top:32px; background:var(--panel); border:1px solid var(--grid); border-radius:6px; padding:20px 22px; }
+  .explainer h2{ font-family:var(--font-display); font-size:20px; margin:0 0 10px; }
+  .explainer p{ color:var(--ink-soft); font-size:15px; margin:0 0 10px; }
+  .explainer dl{ display:grid; grid-template-columns: 170px 1fr; gap:6px 14px; margin:14px 0 0; font-size:14px; }
+  .explainer dt{ font-family:var(--font-mono); font-weight:600; color:var(--brick); }
+  .explainer dd{ margin:0; color:var(--ink); }
+
+  .sr-only{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+  @media (prefers-reduced-motion: reduce){ button{ transition:none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Built From Real Kaggle Competition Data</p>
+    <h1>Real Tweets, Real Ambiguity</h1>
+    <p class="lede">This version uses actual tweets from Kaggle's "NLP with Disaster Tweets" competition &mdash; the same dataset behind your RNN notebook. Every review in the last version was invented to make a point. These are real people's real tweets, and the ambiguity you'll run into is the actual, famous reason this exact classification task is hard.</p>
+    <p class="source-note">Source: Kaggle, "Natural Language Processing with Disaster Tweets" (<code>train.csv</code>), 7,613 tweets labeled disaster / not-disaster. 26 tweets were selected here and screened for profanity, slurs, and political content before use. A handful had trailing question-mark artifacts (from emoji lost in CSV export) trimmed for readability; wording is otherwise verbatim.</p>
+
+    <ol class="steps">
+      <li><strong>Step 1</strong>Four tweets already have a hand-checked label (ringed dots): two real disaster reports, two casual tweets.</li>
+      <li><strong>Step 2</strong>Set the propagation threshold, then click "Run One Round" and watch labels spread &mdash; including to tweets that only <em>sound</em> like disasters.</li>
+      <li><strong>Step 3</strong>Click "Run to Completion." Then look closely at what got labeled "disaster" that shouldn't have been.</li>
+    </ol>
+  </header>
+
+  <section class="stage">
+    <div class="plot-card">
+      <h2>Tweets by Disaster-Word and Casual-Word Count</h2>
+      <p class="plot-hint">Each tweet's position is how many words from each list below appear in it. Click the grid to add your own tweet. Dots are nudged slightly apart when they land on the exact same count &mdash; watch for that; it's not a rendering glitch.</p>
+      <div class="legend">
+        <span><span class="swatch seed"></span>Hand-labeled seed</span>
+        <span><span class="swatch disaster"></span>Disaster</span>
+        <span><span class="swatch casual"></span>Not Disaster</span>
+        <span><span class="swatch unlabeled"></span>Unlabeled</span>
+      </div>
+      <svg id="plot" viewBox="0 0 640 420" role="img" aria-label="Scatter plot of real tweets by disaster-word and casual-word count, showing labels spreading from four hand-labeled seed tweets"></svg>
+
+      <div class="word-list-box" id="wordListBox">
+        <div class="row"><span class="tag">Disaster</span><span id="posWordList"></span></div>
+        <div class="row"><span class="tag">Casual</span><span id="negWordList"></span></div>
+      </div>
+
+      <div class="example-reviews" id="exampleReviews"></div>
+    </div>
+
+    <div class="panel-card">
+      <div>
+        <h2>Propagation controls</h2>
+        <p class="plot-hint">Labels spread to whichever unlabeled tweet is closest to an already-labeled one.</p>
+      </div>
+
+      <div class="inspect-box">
+        <strong style="font-size:13px;">Inspect a tweet</strong>
+        <div id="inspectContent"><p class="empty">Click any dot on the plot to see which words were counted.</p></div>
+      </div>
+
+      <div class="control">
+        <label for="threshold">Propagation Distance Threshold <span class="val" id="thresholdVal">0.5</span></label>
+        <input type="range" id="threshold" min="0.1" max="3" step="0.1" value="0.5">
+      </div>
+      <p class="plot-hint" style="margin-top:-8px;">Even at the lowest setting, some tweets will be mislabeled immediately &mdash; they share the exact same word counts as a real disaster report. No threshold avoids that. Raising the threshold past ~1.0 pulls in more tweets, right or wrong.</p>
+
+      <div class="sse-readout">
+        <div class="label">Tweets Labeled</div>
+        <div class="number" id="labeledCount">4 / 26</div>
+        <div class="sub" id="unresolvedNote"></div>
+      </div>
+
+      <div class="btn-row">
+        <button id="stepBtn">Run One Round</button>
+        <button class="primary" id="runBtn">Run to Completion</button>
+        <button id="resetPropBtn">Reset Propagation</button>
+        <button id="resetDataBtn">Reset to Example Data</button>
+      </div>
+
+      <div class="compare" id="compare" aria-live="polite">
+        <div class="row"><span>Seeds you provided</span><span id="seedCount">4</span></div>
+        <div class="row"><span>Labeled by propagation</span><span id="propagatedCount">&mdash;</span></div>
+        <div class="row"><span>Left unresolved</span><span id="unresolvedCount">&mdash;</span></div>
+        <div class="verdict" id="verdictText"></div>
+      </div>
+
+      <div class="predict-box">
+        <strong style="font-size:13px;">Make a prediction</strong>
+        <p class="plot-hint" style="margin:0;">Write your own tweet. We'll count its words the same way as everything else here.</p>
+        <label for="predictText" class="sr-only">Your tweet</label>
+        <textarea id="predictText" rows="3" placeholder="e.g. Fire spreading fast near the highway, evacuating now"></textarea>
+        <button id="predictBtn">Predict</button>
+        <div class="predict-result" id="predictResult">
+          <div class="label">Predicted</div>
+          <div class="number" id="predictedLabel">&mdash;</div>
+          <div id="predictBreakdown" style="margin-top:8px; font-size:12px; text-align:left;"></div>
+        </div>
+      </div>
+
+      <span class="sr-only" id="statusRegion" aria-live="polite"></span>
+    </div>
+  </section>
+
+  <section class="explainer">
+    <h2>What just happened</h2>
+    <p>Only four tweets ever had a real, checked label &mdash; the same handful you'd realistically have time to read yourself out of 7,613. Every round, each unlabeled tweet looked for its closest labeled neighbor and inherited that label if it was close enough. That's semi-supervised learning working exactly as intended.</p>
+    <p>But notice what "close enough" actually meant here. Real tweets are short, so word counts land on only a handful of distinct values &mdash; several genuinely different tweets score <em>identically</em>. "Forest fire near La Ronge Sask. Canada" and "I forgot to bring chocolate with me. Major disaster." both score one disaster-word, zero casual-words. To this feature representation, they are the same tweet. That's not a limitation of this demo; it's the real, well-documented reason the "NLP with Disaster Tweets" competition is considered a hard problem &mdash; sarcasm, idioms, song titles, and drills all use disaster vocabulary without describing a disaster, and simple word-counting has no way to tell the difference.</p>
+    <p>This is exactly why modern NLP has moved past counting words at all. A large language model reads "I'm setting myself up for disaster" in context and understands it's an idiom about a bad decision, not an emergency &mdash; because it's learned from how words like these actually get used across billions of sentences, not just whether specific keywords appear. That's the leap from Unit 2's counting-based methods to Unit 3's generative and contextual models.</p>
+    <dl>
+      <dt>Seed labels</dt><dd>The small set of tweets labeled by a human, treated as ground truth.</dd>
+      <dt>Unlabeled data</dt><dd>Everything else &mdash; no known answer, but still useful structure to learn from.</dd>
+      <dt>Propagation</dt><dd>Spreading a label from a known tweet to a nearby unknown one.</dd>
+      <dt>Feature collision</dt><dd>Two different examples producing the exact same feature values &mdash; a real limit of bag-of-words counting.</dd>
+      <dt>Error cascade</dt><dd>A wrong label spreading to, and corrupting, its neighbors in later rounds.</dd>
+    </dl>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  const svg = document.getElementById('plot');
+  const NS = 'http://www.w3.org/2000/svg';
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const X_MAX = 2.5, Y_MAX = 3.5;
+  const W = 640, H = 420, padL = 55, padR = 20, padT = 20, padB = 40;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  function xScale(v){ return padL + (v/X_MAX)*plotW; }
+  function yScale(v){ return padT + (1 - v/Y_MAX)*plotH; }
+  function invScale(px, py){
+    return {
+      pos: (px - padL)/plotW * X_MAX,
+      neg: (1 - (py - padT)/plotH) * Y_MAX
+    };
+  }
+  function distRaw(a, b){
+    const dx = a.pos - b.pos, dy = a.neg - b.neg;
+    return Math.sqrt(dx*dx + dy*dy);
+  }
+  function clamp(v,lo,hi){ return Math.max(lo, Math.min(hi, v)); }
+  function el(tag, attrs){
+    const e = document.createElementNS(NS, tag);
+    for(const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  const COLORS = { positive: '#B23A2E', negative: '#3E6E75', unlabeled: '#B9B2A0' }; // positive=disaster, negative=casual
+
+  const DISASTER_WORDS = ['fire','earthquake','flood','evacuation','emergency','disaster','wildfire','hurricane','explosion','rescue','burning','collapsed','injured','blaze'];
+  const CASUAL_WORDS = ['love','haha','lol','awesome','weekend','party','beautiful','amazing','fun','great','cool','wonderful'];
+
+  function tokens(t){ return (t.toLowerCase().match(/[a-z']+/g)) || []; }
+  function analyzeText(text){
+    const toks = tokens(text);
+    return {
+      posMatches: toks.filter(t => DISASTER_WORDS.includes(t)),
+      negMatches: toks.filter(t => CASUAL_WORDS.includes(t))
+    };
+  }
+
+  document.getElementById('posWordList').innerHTML = DISASTER_WORDS.map(w => `<span class="word-chip pos">${w}</span>`).join('');
+  document.getElementById('negWordList').innerHTML = CASUAL_WORDS.map(w => `<span class="word-chip neg">${w}</span>`).join('');
+
+  // ---- real, verified tweets from the user's own uploaded train.csv ----
+  const RAW_TWEETS = [
+    // disaster (target=1 in source data)
+    { text: "Forest fire near La Ronge Sask. Canada", cat:'disaster' },
+    { text: "I'm on top of the hill and I can see a fire in the woods...", cat:'disaster' },
+    { text: "There's an emergency evacuation happening now in the building across the street", cat:'disaster' },
+    { text: "Pendleton media office said only fire on base right now is the Horno blaze.", cat:'disaster' },
+    { text: "Apparently part of the building just collapsed. Hope everyone is ok.", cat:'disaster' },
+    { text: "My hand is burning", cat:'disaster' },
+    { text: "13,000 people receive #wildfires evacuation orders in California", cat:'disaster' },
+    { text: "Fully Engulfed Garage Fire: Propane Tanks Inside. Sunnymeade Dr.", cat:'disaster' },
+    // casual (target=0)
+    { text: "I love fruits", cat:'casual' },
+    { text: "London is cool ;)", cat:'casual' },
+    { text: "Love skiing", cat:'casual' },
+    { text: "What a wonderful day!", cat:'casual' },
+    { text: "Love my girlfriend", cat:'casual' },
+    { text: "I love the cotton candy blizzard", cat:'casual' },
+    { text: "Woke up so blown lol", cat:'casual' },
+    { text: "Love love love do you remember your first crush ?", cat:'casual' },
+    // figurative / ambiguous (target=0, but uses disaster vocabulary non-literally)
+    { text: "Why put out a fire that's still burning?", cat:'figurative' },
+    { text: "I forgot to bring chocolate with me. Major disaster.", cat:'figurative' },
+    { text: "Beautiful disaster // Jon McLaughlin is such a good song", cat:'figurative' },
+    { text: "I'm setting myself up for disaster", cat:'figurative' },
+    { text: "Emergency surgery", cat:'figurative' },
+    { text: "Earthquake drill", cat:'figurative' },
+    // neutral (target=0, no matches either list)
+    { text: "What's up man?", cat:'neutral' },
+    { text: "Summer is lovely", cat:'neutral' },
+    { text: "My car is so fast", cat:'neutral' },
+    { text: "Do you like pasta?", cat:'neutral' }
+  ];
+
+  const presetRaw = RAW_TWEETS.map((t) => {
+    const { posMatches, negMatches } = analyzeText(t.text);
+    return { text: t.text, cat: t.cat, pos: posMatches.length, neg: negMatches.length };
+  });
+
+  // seeds: two real disaster reports, two casual tweets, at indices chosen for clean examples
+  const SEED_INDICES = { 0: 'positive', 2: 'positive', 8: 'negative', 11: 'negative' };
+
+  function freshPoints(){
+    return presetRaw.map((p, i) => ({
+      pos: p.pos, neg: p.neg, text: p.text, cat: p.cat, jx: 0, jy: 0,
+      label: SEED_INDICES[i] || null,
+      seed: !!SEED_INDICES[i],
+      confidence: SEED_INDICES[i] ? 1 : 0,
+      parent: null,
+      added: false
+    }));
+  }
+
+  // Arrange points that share the exact same (pos, neg) coordinate into a small
+  // non-overlapping grid centered on that coordinate, spaced by a fixed pixel
+  // distance (converted into data units) so crowded groups stay legible.
+  function layoutOverlaps(){
+    const groups = {};
+    points.forEach((p, i) => {
+      const key = p.pos + ',' + p.neg;
+      (groups[key] = groups[key] || []).push(i);
+    });
+    const pxSpacing = 15;
+    const dataSpacingX = pxSpacing / (plotW / X_MAX);
+    const dataSpacingY = pxSpacing / (plotH / Y_MAX);
+    const edgePad = 0.35; // keep spread points at least this far from the axes
+    Object.entries(groups).forEach(([key, idxs]) => {
+      const n = idxs.length;
+      if(n === 1){ points[idxs[0]].jx = 0; points[idxs[0]].jy = 0; return; }
+      const [truePos, trueNeg] = key.split(',').map(Number);
+      const cols = Math.ceil(Math.sqrt(n));
+      const rows = Math.ceil(n / cols);
+
+      // Center the grid normally, unless that would push points past an axis
+      // (true value 0 with no room below/left), in which case spread only
+      // away from that edge instead of straddling it.
+      const atLeftEdge = truePos - edgePad < 0;
+      const atBottomEdge = trueNeg - edgePad < 0;
+
+      idxs.forEach((idx, i) => {
+        const row = Math.floor(i / cols), col = i % cols;
+        points[idx].jx = atLeftEdge
+          ? (col + 0.5) * dataSpacingX
+          : (col - (cols - 1) / 2) * dataSpacingX;
+        points[idx].jy = atBottomEdge
+          ? (row + 0.5) * dataSpacingY
+          : (row - (rows - 1) / 2) * dataSpacingY;
+      });
+    });
+  }
+
+  let points = freshPoints();
+  layoutOverlaps();
+  let animating = false;
+  let predictionPoint = null;
+  let selectedIdx = null;
+
+  const thresholdInput = document.getElementById('threshold');
+  const thresholdVal = document.getElementById('thresholdVal');
+  const labeledCount = document.getElementById('labeledCount');
+  const unresolvedNote = document.getElementById('unresolvedNote');
+  const stepBtn = document.getElementById('stepBtn');
+  const runBtn = document.getElementById('runBtn');
+  const resetPropBtn = document.getElementById('resetPropBtn');
+  const resetDataBtn = document.getElementById('resetDataBtn');
+  const compare = document.getElementById('compare');
+  const seedCountEl = document.getElementById('seedCount');
+  const propagatedCountEl = document.getElementById('propagatedCount');
+  const unresolvedCountEl = document.getElementById('unresolvedCount');
+  const verdictText = document.getElementById('verdictText');
+  const statusRegion = document.getElementById('statusRegion');
+  const predictTextInput = document.getElementById('predictText');
+  const predictBtn = document.getElementById('predictBtn');
+  const predictResult = document.getElementById('predictResult');
+  const predictedLabelEl = document.getElementById('predictedLabel');
+  const predictBreakdown = document.getElementById('predictBreakdown');
+  const inspectContent = document.getElementById('inspectContent');
+
+  let threshold = parseFloat(thresholdInput.value);
+
+  function labeledPoints(){ return points.filter(p => p.label); }
+
+  (function renderExampleReviews(){
+    const examples = [
+      { idx: 0, tag: 'Real Disaster Report', cls: 'disaster' },
+      { idx: 8, tag: 'Casual Tweet', cls: 'casual' },
+      { idx: 17, tag: 'Figurative \u2014 Not Actually a Disaster', cls: 'figurative' },
+      { idx: 22, tag: 'Neutral', cls: 'neutral' }
+    ];
+    const container = document.getElementById('exampleReviews');
+    container.innerHTML = examples.map(ex => {
+      const p = presetRaw[ex.idx];
+      return `<div class="example-card ${ex.cls}"><span class="tag">${ex.tag} &middot; ${p.pos} disaster, ${p.neg} casual</span>"${p.text}"</div>`;
+    }).join('');
+  })();
+
+  function render(){
+    svg.innerHTML = '';
+
+    svg.appendChild(el('line', {x1:padL, y1:H-padB, x2:W-padR, y2:H-padB, stroke:'#4B5568', 'stroke-width':1}));
+    svg.appendChild(el('line', {x1:padL, y1:padT, x2:padL, y2:H-padB, stroke:'#4B5568', 'stroke-width':1}));
+
+    const xLabel = el('text', {x:padL+plotW/2, y:H-6, 'text-anchor':'middle', class:'axis-label'});
+    xLabel.textContent = 'Disaster Words Used';
+    svg.appendChild(xLabel);
+    const yLabel = el('text', {x:16, y:padT+plotH/2, 'text-anchor':'middle', class:'axis-label', transform:`rotate(-90, 16, ${padT+plotH/2})`});
+    yLabel.textContent = 'Casual Words Used';
+    svg.appendChild(yLabel);
+
+    for(let v=0; v<=X_MAX; v+=1){
+      svg.appendChild(Object.assign(el('text', {x:xScale(v), y:H-padB+16, 'text-anchor':'middle', class:'axis-label'}), {textContent:v}));
+    }
+    for(let v=0; v<=Y_MAX; v+=1){
+      svg.appendChild(Object.assign(el('text', {x:padL-8, y:yScale(v)+4, 'text-anchor':'end', class:'axis-label'}), {textContent:v}));
+    }
+
+    points.forEach(p => {
+      if(p.parent !== null){
+        const parent = points[p.parent];
+        const color = COLORS[p.label] || '#999';
+        svg.appendChild(el('line', {
+          x1:xScale(p.pos+p.jx), y1:yScale(p.neg+p.jy), x2:xScale(parent.pos+parent.jx), y2:yScale(parent.neg+parent.jy),
+          stroke:color, class:'propagation-line'
+        }));
+      }
+    });
+
+    points.forEach((p, idx) => {
+      const color = p.label ? COLORS[p.label] : COLORS.unlabeled;
+      const opacity = p.label ? clamp(0.35 + 0.65*p.confidence, 0.35, 1) : 1;
+      const cx = xScale(p.pos+p.jx), cy = yScale(p.neg+p.jy);
+
+      svg.appendChild(el('circle', { cx, cy, r:14, fill:'transparent', class:'tweet-point', 'data-idx': idx }));
+
+      svg.appendChild(el('circle', {
+        cx, cy, r: p.seed ? 8 : 6,
+        fill:color, opacity:opacity,
+        stroke: p.seed ? '#1B2430' : '#FBF8F2',
+        'stroke-width': p.seed ? 2.5 : 1.5,
+        class:'tweet-point', 'data-idx': idx
+      }));
+
+      if(selectedIdx === idx){
+        svg.appendChild(el('circle', {
+          cx, cy, r:(p.seed?8:6)+5, fill:'none', stroke:'#7A5FA6', 'stroke-width':2, 'stroke-dasharray':'3 3'
+        }));
+      }
+    });
+
+    if(predictionPoint){
+      const lp = labeledPoints();
+      let best = null, bestDist = Infinity;
+      lp.forEach(p => { const d = distRaw(predictionPoint, p); if(d < bestDist){ bestDist = d; best = p; } });
+      const px = xScale(predictionPoint.pos), py = yScale(predictionPoint.neg);
+      if(best){
+        svg.appendChild(el('line', {
+          x1:px, y1:py, x2:xScale(best.pos+best.jx), y2:yScale(best.neg+best.jy),
+          stroke:'#7A5FA6', 'stroke-width':2, 'stroke-dasharray':'5 4'
+        }));
+      }
+      const size = 9;
+      const starPts = `${px},${py-size} ${px+size*0.3},${py-size*0.3} ${px+size},${py} ${px+size*0.3},${py+size*0.3} ${px},${py+size} ${px-size*0.3},${py+size*0.3} ${px-size},${py} ${px-size*0.3},${py-size*0.3}`;
+      svg.appendChild(el('polygon', {points:starPts, fill:'#7A5FA6', stroke:'#1B2430', 'stroke-width':1.5}));
+    }
+
+    const total = points.length;
+    const labeled = points.filter(p => p.label).length;
+    labeledCount.textContent = `${labeled} / ${total}`;
+    const unresolved = total - labeled;
+    unresolvedNote.textContent = unresolved > 0 ? `${unresolved} still unresolved` : 'All tweets labeled';
+  }
+
+  // Finds the nearest labeled point(s) to `point` among `candidates`. If several
+  // candidates tie for nearest, resolves by majority label among the tied set
+  // rather than by array order — a true tie (equal votes) returns label:null,
+  // meaning "too close to call," not an arbitrary pick.
+  function nearestLabelVote(point, candidates){
+    if(candidates.length === 0) return null;
+    let bestDist = Infinity;
+    candidates.forEach(c => { const d = distRaw(point, c); if(d < bestDist) bestDist = d; });
+    const EPS = 1e-9;
+    const tied = candidates.filter(c => Math.abs(distRaw(point, c) - bestDist) < EPS);
+    const posCount = tied.filter(c => c.label === 'positive').length;
+    const negCount = tied.filter(c => c.label === 'negative').length;
+    let label = null;
+    if(posCount > negCount) label = 'positive';
+    else if(negCount > posCount) label = 'negative';
+    const example = label ? tied.find(c => c.label === label) : tied[0];
+    return { label, dist: bestDist, tiedCount: tied.length, posCount, negCount, example };
+  }
+
+  function runOneRoundSync(){
+    const labeledSet = points.map((p, i) => ({ idx:i, pos:p.pos, neg:p.neg, label:p.label })).filter(p => p.label);
+    if(labeledSet.length === 0) return 0;
+    const updates = [];
+    points.forEach((p, idx) => {
+      if(p.label) return;
+      const result = nearestLabelVote(p, labeledSet);
+      if(!result || result.dist > threshold || !result.label) return; // out of range, or a genuine tie left unresolved
+      updates.push({ idx, label: result.label, confidence: clamp(1 - result.dist/(threshold||1), 0.15, 1), parent: result.example.idx });
+    });
+    updates.forEach(u => {
+      points[u.idx].label = u.label;
+      points[u.idx].confidence = u.confidence;
+      points[u.idx].parent = u.parent;
+    });
+    return updates.length;
+  }
+
+  function sleep(ms){ return new Promise(r => setTimeout(r, reduceMotion ? 0 : ms)); }
+  function setControlsDisabled(disabled){
+    stepBtn.disabled = disabled; runBtn.disabled = disabled;
+    resetPropBtn.disabled = disabled; resetDataBtn.disabled = disabled;
+    thresholdInput.disabled = disabled;
+  }
+
+  async function runOneIteration(){
+    if(animating) return;
+    animating = true;
+    setControlsDisabled(true);
+    try{
+      const newlyLabeled = runOneRoundSync();
+      render();
+      statusRegion.textContent = newlyLabeled > 0
+        ? `Labeled ${newlyLabeled} more tweet${newlyLabeled===1?'':'s'} this round.`
+        : 'No tweets were close enough to a labeled point to propagate this round.';
+      await sleep(150);
+    } finally {
+      animating = false;
+      setControlsDisabled(false);
+    }
+  }
+
+  async function runToCompletion(){
+    if(animating) return;
+    animating = true;
+    setControlsDisabled(true);
+    compare.classList.remove('show');
+    try{
+      const maxRounds = 12;
+      for(let round=0; round<maxRounds; round++){
+        const newlyLabeled = runOneRoundSync();
+        render();
+        if(newlyLabeled === 0) break;
+        await sleep(350);
+      }
+      render();
+
+      const seeds = points.filter(p => p.seed).length;
+      const totalLabeled = points.filter(p => p.label).length;
+      const propagated = totalLabeled - seeds;
+      const unresolved = points.length - totalLabeled;
+      const wrongDisaster = points.filter(p => !p.seed && p.label === 'positive' && (p.cat === 'figurative' || p.cat === 'neutral')).length;
+
+      seedCountEl.textContent = seeds;
+      propagatedCountEl.textContent = propagated;
+      unresolvedCountEl.textContent = unresolved;
+
+      let verdict;
+      if(wrongDisaster > 0){
+        verdict = `Propagation spread your ${seeds} hand-checked labels to ${propagated} more tweets \u2014 but ${wrongDisaster} of those are tweets that only use disaster vocabulary figuratively, now confidently mislabeled "disaster." That's not a bug in the algorithm. It's what happens when the feature representation genuinely can't tell the difference.`;
+      } else if(unresolved > 0){
+        verdict = `Propagation spread your ${seeds} hand-checked labels to ${propagated} more tweets. ${unresolved} stayed too far from any labeled point to safely guess.`;
+      } else {
+        verdict = `All ${points.length} tweets ended up labeled from just ${seeds} hand-checked examples \u2014 worth checking which ones got swept in by coincidence rather than genuine similarity.`;
+      }
+      verdictText.textContent = verdict;
+      compare.classList.add('show');
+      statusRegion.textContent = `Finished. ${totalLabeled} of ${points.length} tweets labeled, ${unresolved} unresolved.`;
+    } finally {
+      animating = false;
+      setControlsDisabled(false);
+    }
+  }
+
+  stepBtn.addEventListener('click', runOneIteration);
+  runBtn.addEventListener('click', runToCompletion);
+
+  resetPropBtn.addEventListener('click', () => {
+    points.forEach(p => { if(!p.seed){ p.label = null; p.confidence = 0; p.parent = null; } });
+    compare.classList.remove('show');
+    render();
+  });
+
+  resetDataBtn.addEventListener('click', () => {
+    points = freshPoints();
+    layoutOverlaps();
+    thresholdInput.value = 0.5; threshold = 0.5; thresholdVal.textContent = '0.5';
+    compare.classList.remove('show');
+    selectedIdx = null;
+    inspectContent.innerHTML = '<p class="empty">Click any dot on the plot to see which words were counted.</p>';
+    render();
+  });
+
+  thresholdInput.addEventListener('input', () => {
+    threshold = parseFloat(thresholdInput.value);
+    thresholdVal.textContent = threshold.toFixed(1);
+    render();
+  });
+
+  function showInspect(idx){
+    selectedIdx = idx;
+    const p = points[idx];
+    const { posMatches, negMatches } = analyzeText(p.text);
+    const statusText = p.seed ? 'Hand-labeled seed' : p.label ? (p.label === 'positive' ? 'Labeled Disaster by propagation' : 'Labeled Not Disaster by propagation') : 'Unlabeled';
+    inspectContent.innerHTML = `
+      <div class="review-title">Tweet #${idx+1} &mdash; ${statusText}</div>
+      <div style="font-size:13px; font-style:italic; color:var(--ink-soft); margin:2px 0 6px;">"${p.text}"</div>
+      <div class="word-group">
+        <span class="tag">Disaster words (${posMatches.length})</span>
+        ${posMatches.length ? posMatches.map(w=>`<span class="word-chip pos">${w}</span>`).join('') : '<em style="color:var(--ink-soft); font-size:12px;">none</em>'}
+      </div>
+      <div class="word-group">
+        <span class="tag">Casual words (${negMatches.length})</span>
+        ${negMatches.length ? negMatches.map(w=>`<span class="word-chip neg">${w}</span>`).join('') : '<em style="color:var(--ink-soft); font-size:12px;">none</em>'}
+      </div>
+    `;
+    render();
+    inspectContent.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
+  }
+
+  svg.addEventListener('click', (e) => {
+    if(animating) return;
+    const target = e.target;
+    if(target && target.tagName === 'circle' && target.hasAttribute('data-idx')){
+      showInspect(parseInt(target.getAttribute('data-idx'), 10));
+      return;
+    }
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX; pt.y = e.clientY;
+    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse());
+    if(svgP.x < padL || svgP.x > W-padR || svgP.y < padT || svgP.y > H-padB) return;
+    const data = invScale(svgP.x, svgP.y);
+    points.push({ pos: Math.round(data.pos), neg: Math.round(data.neg), text:'(custom point, no tweet text)', cat:'custom', jx:0, jy:0, label:null, seed:false, confidence:0, parent:null, added:true });
+    layoutOverlaps();
+    selectedIdx = null;
+    compare.classList.remove('show');
+    render();
+  });
+
+  predictBtn.addEventListener('click', () => {
+    const text = predictTextInput.value.trim();
+    if(!text) return;
+    const { posMatches, negMatches } = analyzeText(text);
+    predictionPoint = { pos: posMatches.length, neg: negMatches.length };
+    render();
+
+    const posChips = posMatches.length ? posMatches.map(w=>`<span class="word-chip pos">${w}</span>`).join('') : '<em style="color:var(--ink-soft);">none found</em>';
+    const negChips = negMatches.length ? negMatches.map(w=>`<span class="word-chip neg">${w}</span>`).join('') : '<em style="color:var(--ink-soft);">none found</em>';
+
+    const lp = labeledPoints();
+    let matchHtml = '';
+    if(lp.length){
+      const result = nearestLabelVote(predictionPoint, lp.map((p,i) => ({ ...p, idx:i })));
+
+      if(!result.label){
+        // genuine tie: equal votes for disaster and not-disaster among the nearest examples
+        matchHtml = `
+          <div style="margin-top:8px; padding-top:8px; border-top:1px dashed var(--grid); font-size:12px;">
+            <span style="font-family:var(--font-mono); font-weight:600; color:var(--brick);">Too close to call</span><br>
+            This tweet is exactly as close to labeled "Disaster" examples as it is to labeled "Not Disaster" examples (${result.posCount} vs ${result.negCount} tied at distance ${result.dist.toFixed(1)}). A fair nearest-neighbor classifier can't confidently pick one here &mdash; and shouldn't.
+          </div>
+        `;
+        predictedLabelEl.textContent = 'Tied \u2014 no confident prediction';
+        predictedLabelEl.style.color = 'var(--ink-soft)';
+        predictResult.style.background = 'var(--grid)';
+        predictResult.classList.add('show');
+        statusRegion.textContent = 'Prediction tied between Disaster and Not Disaster \u2014 no confident answer.';
+      } else {
+        const bestDist = result.dist;
+        const best = result.example;
+
+        let confidence, confColor;
+        if(bestDist === 0){ confidence = 'Exact word-count match'; confColor = 'var(--amber)'; }
+        else if(bestDist <= 1){ confidence = 'Medium confidence'; confColor = 'var(--amber)'; }
+        else { confidence = 'Low confidence \u2014 nearest example is far away'; confColor = 'var(--brick)'; }
+
+        const label = result.label === 'positive' ? 'Disaster' : 'Not Disaster';
+        const provenanceNote = best.seed
+          ? 'This match is one of the four hand-checked seeds \u2014 solid ground truth.'
+          : 'This match was itself labeled by propagation, not hand-checked. If it was a borderline call, this prediction inherits that same uncertainty.';
+
+        matchHtml = `
+          <div style="margin-top:8px; padding-top:8px; border-top:1px dashed var(--grid); font-size:12px;">
+            <span style="font-family:var(--font-mono); font-weight:600; color:${confColor};">${confidence}</span><br>
+            Matched to: <strong>"${best.text}"</strong> (distance ${bestDist.toFixed(1)}), labeled <strong style="color:${COLORS[result.label]};">${label}</strong>.
+            <div style="margin-top:4px; ${best.seed ? '' : 'color:var(--brick);'}">${provenanceNote}</div>
+            ${bestDist === 0 ? '<div style="margin-top:4px; color:var(--brick);">Zero distance means your tweet scores identically to this one on this feature \u2014 not necessarily that they mean the same thing.</div>' : ''}
+          </div>
+        `;
+        predictedLabelEl.textContent = label;
+        predictedLabelEl.style.color = COLORS[result.label];
+        predictResult.style.background = COLORS[result.label] + '26';
+        predictResult.classList.add('show');
+        statusRegion.textContent = `Predicted: ${label} (${confidence.toLowerCase()}).`;
+      }
+    }
+
+    predictBreakdown.innerHTML = `
+      <div style="margin-bottom:4px;"><span style="font-family:var(--font-mono); font-size:11px; color:var(--ink-soft);">Disaster words found (${posMatches.length}):</span><br>${posChips}</div>
+      <div><span style="font-family:var(--font-mono); font-size:11px; color:var(--ink-soft);">Casual words found (${negMatches.length}):</span><br>${negChips}</div>
+      ${matchHtml}
+    `;
+  });
+
+  // ---- init ----
+  render();
+})();
+</script>
+</body>
+</html>

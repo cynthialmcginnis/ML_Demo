@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARIN 310 — Interactive Machine Learning Demos</title>
+<style>
+  :root{
+    --paper:#F6F1E7;
+    --panel:#FBF8F2;
+    --ink:#1B2430;
+    --ink-soft:#4B5568;
+    --grid:#D8D2C2;
+    --teal:#3E6E75;
+    --teal-soft:#DCE9EA;
+    --amber:#C97F2B;
+    --amber-soft:#F3E1C8;
+    --brick:#B23A2E;
+    --brick-soft:#F2DBD8;
+    --violet:#7A5FA6;
+    --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--paper); color:var(--ink); font-family:var(--font-body); line-height:1.5; }
+  .wrap{ max-width:900px; margin:0 auto; padding:40px 20px 64px; }
+
+  header{ border-bottom:1px solid var(--grid); padding-bottom:24px; margin-bottom:32px; }
+  .eyebrow{
+    font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em;
+    text-transform:uppercase; color:var(--teal); margin:0 0 10px;
+  }
+  h1{ font-family:var(--font-display); font-weight:700; font-size:clamp(28px,4vw,40px); line-height:1.1; margin:0 0 12px; }
+  .lede{ max-width:640px; color:var(--ink-soft); font-size:16px; margin:0; }
+
+  .group{ margin-top:36px; }
+  .group h2{
+    font-family:var(--font-display); font-size:20px; margin:0 0 4px;
+    padding-bottom:8px; border-bottom:2px solid var(--accent, var(--teal));
+  }
+  .group p.desc{ color:var(--ink-soft); font-size:14px; margin:8px 0 16px; max-width:640px; }
+
+  .card{
+    display:block; text-decoration:none; color:inherit;
+    background:var(--panel); border:1px solid var(--grid); border-left:4px solid var(--accent, var(--teal));
+    border-radius:6px; padding:18px 20px; margin-bottom:14px;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .card:hover{ transform: translateX(3px); box-shadow: 0 2px 10px rgba(27,36,48,0.08); }
+  .card h3{ font-family:var(--font-display); font-size:18px; margin:0 0 6px; color:var(--ink); }
+  .card p{ font-size:14px; color:var(--ink-soft); margin:0; }
+  .card .tag{
+    display:inline-block; font-family:var(--font-mono); font-size:11px;
+    text-transform:uppercase; letter-spacing:0.06em; color:var(--accent, var(--teal));
+    margin-bottom:6px;
+  }
+
+  .supervised{ --accent: var(--teal); }
+  .unsupervised{ --accent: var(--amber); }
+  .semisupervised{ --accent: var(--brick); }
+
+  footer{
+    margin-top:48px; padding-top:20px; border-top:1px solid var(--grid);
+    font-size:13px; color:var(--ink-soft);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">ARIN 310 &middot; Introduction to Artificial Intelligence</p>
+    <h1>Interactive Machine Learning Demos</h1>
+    <p class="lede">Four hands-on tools for Unit 2. Each one exposes the actual mechanism &mdash; the loss being minimized, the search for a better answer, the moments where the algorithm gets it wrong &mdash; instead of just showing a black-box result.</p>
+  </header>
+
+  <section class="group supervised">
+    <h2>Supervised Learning</h2>
+    <p class="desc">Every example has a known, correct answer. The model searches for the fit that minimizes error against it.</p>
+
+    <a class="card" href="linear-regression-demo.html">
+      <span class="tag">One Feature</span>
+      <h3>Finding the Line That Fits</h3>
+      <p>Fit a line to real data by hand, then reveal the mathematically optimal one. Introduces loss, error, and the idea of training as a search.</p>
+    </a>
+
+    <a class="card" href="multi-feature-regression-demo.html">
+      <span class="tag">Multiple Features &middot; 3D</span>
+      <h3>When One Line Isn't Enough</h3>
+      <p>Two features means fitting a plane, not a line. A rotatable 3D scene shows the model's surface directly, with the same reveal-the-best-fit mechanic.</p>
+    </a>
+  </section>
+
+  <section class="group unsupervised">
+    <h2>Unsupervised Learning</h2>
+    <p class="desc">No labels at all &mdash; just structure waiting to be found.</p>
+
+    <a class="card" href="unsupervised-clustering-demo.html">
+      <span class="tag">K-Means Clustering</span>
+      <h3>Finding Structure Without Labels</h3>
+      <p>Group unlabeled customers by hand, then watch k-means take over. Includes a real, honest limitation: different starting points can converge to different answers.</p>
+    </a>
+  </section>
+
+  <section class="group semisupervised">
+    <h2>Semi-Supervised Learning</h2>
+    <p class="desc">A handful of trusted labels, plus a lot of unlabeled data, used together.</p>
+
+    <a class="card" href="disaster-tweets-label-propagation-demo.html">
+      <span class="tag">Label Propagation &middot; Real Kaggle Data</span>
+      <h3>Real Tweets, Real Ambiguity</h3>
+      <p>Built on real tweets from Kaggle's "NLP with Disaster Tweets" competition. Four hand-labeled seeds spread labels outward &mdash; including, honestly, to tweets that only sound like disasters.</p>
+    </a>
+  </section>
+
+  <footer>
+    Built for ARIN 310, Section A301 &middot; Fall 2026
+  </footer>
+
+</div>
+</body>
+</html>
