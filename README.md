@@ -2,7 +2,7 @@
 
 Four browser-based, hands-on tools built for **ARIN 310: Introduction to Artificial Intelligence** (Unit 2 — Machine Learning and Deep Learning). Each demo exposes the actual mechanism behind a technique — the loss being minimized, the search for a better answer, the moments where the algorithm gets it wrong — instead of producing a black-box result.
 
-**Live site:** `https://cynthialmcginnis.github.io/ML-Learning-Demos/`
+**Live site:** `https://cynthialmcginnis.github.io/ML_Demo/linear-regression-demo.html/`
 
 No build step, no dependencies, no backend. Every demo is a single self-contained HTML file (inline CSS and JavaScript) that runs entirely in the browser.
 
