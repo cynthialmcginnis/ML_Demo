@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Build a Brain: One Neuron, Two, or Three</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #F2F6FA;
+    margin: 0;
+    padding: 30px;
+    color: #003366;
+  }
+  h1 {
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  p.subtitle {
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 15px;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .tab {
+    background: white;
+    border: 2px solid #003366;
+    border-radius: 6px;
+    padding: 10px 18px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: bold;
+    color: #003366;
+  }
+  .tab.active {
+    background: #003366;
+    color: white;
+  }
+  .layout {
+    max-width: 950px;
+    margin: 0 auto;
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .board {
+    background: white;
+    border: 2px solid #003366;
+    border-radius: 10px;
+    padding: 10px 10px 30px 34px;
+    position: relative;
+  }
+  canvas {
+    display: block;
+    border-radius: 6px;
+  }
+  .controls {
+    width: 320px;
+  }
+  .panel {
+    background: white;
+    border: 2px solid #003366;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .panel h3 {
+    margin-top: 0;
+    font-size: 15px;
+    border-bottom: 2px solid #F2A900;
+    padding-bottom: 6px;
+  }
+  .slider-row {
+    margin-bottom: 12px;
+  }
+  .slider-row label {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  input[type="range"] {
+    width: 100%;
+  }
+  .accuracy {
+    text-align: center;
+    font-size: 28px;
+    font-weight: bold;
+    margin: 10px 0;
+  }
+  .accuracy.low { color: #c0392b; }
+  .accuracy.high { color: #2d6b2d; }
+  button.action {
+    display: block;
+    width: 100%;
+    background: #003366;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  button.action:hover { background: #002244; }
+  .mode-toggle {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .mode-toggle button {
+    flex: 1;
+    border: 2px solid #003366;
+    background: white;
+    color: #003366;
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  .mode-toggle button.active {
+    background: #F2A900;
+    border-color: #F2A900;
+    color: #003366;
+  }
+  .cleared-banner {
+    text-align: center;
+    background: #dff2df;
+    border: 2px solid #2d6b2d;
+    color: #2d6b2d;
+    font-weight: bold;
+    font-size: 16px;
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 10px;
+    display: none;
+  }
+  .hint {
+    font-size: 13px;
+    color: #444;
+    background: #F2F6FA;
+    border-left: 3px solid #F2A900;
+    padding: 8px 10px;
+    margin-top: 10px;
+  }
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    font-size: 13px;
+    margin-top: 8px;
+  }
+  .legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .takeaway {
+    max-width: 900px;
+    margin: 30px auto 0;
+    background: white;
+    border: 2px solid #003366;
+    border-radius: 10px;
+    padding: 18px 22px;
+    font-size: 14px;
+  }
+  .network-panel {
+    max-width: 900px;
+    margin: 20px auto 0;
+    background: white;
+    border: 2px solid #003366;
+    border-radius: 10px;
+    padding: 16px 20px;
+  }
+  .network-panel h3 {
+    margin-top: 0;
+    font-size: 15px;
+    border-bottom: 2px solid #F2A900;
+    padding-bottom: 6px;
+  }
+  .network-caption {
+    font-size: 13px;
+    color: #444;
+    margin-top: 6px;
+    text-align: center;
+  }
+  .formula-panel {
+    max-width: 900px;
+    margin: 20px auto 0;
+    background: white;
+    border: 2px solid #003366;
+    border-radius: 10px;
+    padding: 16px 20px;
+  }
+  .formula-panel h3 {
+    margin-top: 0;
+    font-size: 15px;
+    border-bottom: 2px solid #F2A900;
+    padding-bottom: 6px;
+  }
+  .formula-block {
+    font-family: "Courier New", monospace;
+    font-size: 15px;
+    background: #F2F6FA;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    line-height: 1.6;
+  }
+  .formula-block .wpos { color: #2d8a8a; font-weight: bold; }
+  .formula-block .wneg { color: #b03a2e; font-weight: bold; }
+  .formula-block .var { color: #003366; font-weight: bold; }
+  .formula-block .rule { color: #444; }
+  .rule-banner {
+    background: #F2A900;
+    color: #003366;
+    font-weight: bold;
+    font-size: 14px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+    text-align: center;
+  }
+  .test-panel {
+    max-width: 900px;
+    margin: 20px auto 0;
+    background: white;
+    border: 2px solid #003366;
+    border-radius: 10px;
+    padding: 16px 20px;
+  }
+  .test-panel h3 {
+    margin-top: 0;
+    font-size: 15px;
+    border-bottom: 2px solid #F2A900;
+    padding-bottom: 6px;
+  }
+  .test-empty {
+    font-size: 14px;
+    color: #666;
+    font-style: italic;
+  }
+  .test-result {
+    font-family: "Courier New", monospace;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+  .test-verdict {
+    font-family: Arial, sans-serif;
+    font-size: 17px;
+    font-weight: bold;
+    margin-top: 10px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    display: inline-block;
+  }
+</style>
+</head>
+<body>
+
+<h1>Build a Brain: One Neuron, Two, or Three</h1>
+<p class="subtitle">Each dot is a data point. Teal is Class A, brick red is Class B. A neuron is a node that multiplies each input by a weight, adds a bias, and fires if the result is positive. Drag the sliders and watch the boundary, the network, and the actual formula all update together.</p>
+
+<div class="tabs">
+  <div class="tab active" id="tabLevel1" onclick="switchLevel(1)">Level 1: One Neuron</div>
+  <div class="tab" id="tabLevel2" onclick="switchLevel(2)">Level 2: Add a Neuron</div>
+  <div class="tab" id="tabLevel3" onclick="switchLevel(3)">Level 3: Add a Third</div>
+</div>
+
+<div class="layout">
+  <div class="board">
+    <canvas id="canvas" width="400" height="400"></canvas>
+    <p style="font-size:12px; color:#444; margin:8px 0 0; text-align:center;">Click anywhere on the board to test that exact point.</p>
+    <div class="legend">
+      <span><span class="dot" style="background:#2d8a8a;"></span> Class A</span>
+      <span><span class="dot" style="background:#b03a2e;"></span> Class B</span>
+      <span><span class="dot" style="background:white; border:2px solid black;"></span> Misclassified</span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="panel">
+      <h3>Neuron 1</h3>
+      <div class="slider-row">
+        <label>Angle: <span id="n1AngleVal">0</span>&deg;</label>
+        <input type="range" id="n1Angle" min="0" max="360" value="0">
+      </div>
+      <div class="slider-row">
+        <label>Offset: <span id="n1OffsetVal">0</span></label>
+        <input type="range" id="n1Offset" min="-150" max="150" value="0">
+      </div>
+    </div>
+
+    <div class="panel" id="neuron2Panel" style="display:none;">
+      <h3>Neuron 2</h3>
+      <div class="slider-row">
+        <label>Angle: <span id="n2AngleVal">0</span>&deg;</label>
+        <input type="range" id="n2Angle" min="0" max="360" value="90">
+      </div>
+      <div class="slider-row">
+        <label>Offset: <span id="n2OffsetVal">0</span></label>
+        <input type="range" id="n2Offset" min="-150" max="150" value="0">
+      </div>
+    </div>
+
+    <div class="panel" id="neuron3Panel" style="display:none;">
+      <h3>Neuron 3</h3>
+      <div class="slider-row">
+        <label>Angle: <span id="n3AngleVal">0</span>&deg;</label>
+        <input type="range" id="n3Angle" min="0" max="360" value="270">
+      </div>
+      <div class="slider-row">
+        <label>Offset: <span id="n3OffsetVal">0</span></label>
+        <input type="range" id="n3Offset" min="-150" max="150" value="-130">
+      </div>
+    </div>
+
+    <div class="panel" id="combinePanel" style="display:none;">
+      <label style="font-size:13px;">Combine neurons with:</label>
+      <div class="mode-toggle">
+        <button id="modeAnd" class="active" onclick="setMode('AND')">AND</button>
+        <button id="modeOr" onclick="setMode('OR')">OR</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="accuracy low" id="accuracyDisplay">0%</div>
+      <button class="action" id="addNeuronBtn" onclick="addNeuron()" style="display:none;">Add Neuron 2</button>
+      <button class="action" onclick="resetLevel()">Reset This Level</button>
+      <div class="hint" id="levelHint" style="display:none;"></div>
+      <div class="cleared-banner" id="clearedBanner">Level Cleared!</div>
+    </div>
+  </div>
+</div>
+
+<div class="network-panel">
+  <h3>The Actual Network</h3>
+  <div id="netDiagram"></div>
+  <p class="network-caption">This is the real network computing the boundary on the left. Each connection's number is its weight. Each neuron's number is its bias. Drag any slider and watch these numbers change.</p>
+</div>
+
+<div class="formula-panel">
+  <h3>The Actual Formula</h3>
+  <div class="rule-banner">X and Y are a dot's position on the board (left-right and up-down). Plug them into the formula below. Positive result &nbsp;&rarr;&nbsp; the neuron fires &nbsp;&rarr;&nbsp; predict Class A. Negative result &nbsp;&rarr;&nbsp; predict Class B.</div>
+  <div id="formulaDisplay"></div>
+</div>
+
+<div class="test-panel">
+  <h3>Test a Point</h3>
+  <div id="testDisplay"><span class="test-empty">Click anywhere on the board above to see the exact math for that point.</span></div>
+</div>
+
+<div class="takeaway" id="takeawayBox">
+  A single neuron multiplies each input by a weight, adds a bias, and fires if the result is positive. Geometrically that is one straight line. It works great when your two classes fall on opposite sides of some line, like Level 1. But real data is rarely that clean. Level 2's data forms a wedge that no single neuron can isolate, so it takes two working together. Level 3 goes further: its data surrounds a small cluster from every direction, and it turns out even two neurons cannot fully wrap it, no matter how they are angled. Only a third neuron closes the gap. This is exactly why deep learning stacks neurons into layers: each additional neuron adds another straight cut, and combining more of them lets the network carve out shapes that fewer neurons never could.
+</div>
+
+<script>
+const CENTER = { x: 200, y: 200 };
+
+const level1Data = {
+  classA: [[80,260],[110,280],[70,320],[130,340],[90,350],[150,300],[60,290],[140,250]],
+  classB: [[280,80],[320,60],[260,120],[340,140],[300,150],[250,60],[330,100],[290,130]]
+};
+
+const level2Data = {
+  classA: [[200,180],[180,220],[220,220],[160,260],[240,260],[200,300],[170,300],[230,300]],
+  classB: [[200,60],[120,60],[280,60],[50,180],[350,180],[50,260],[350,260],[50,370],[350,370],[30,200]]
+};
+
+// Verified: best single-neuron accuracy 69.2%, best any-2-neuron (AND or OR) accuracy 96.2%,
+// best 3-neuron AND accuracy 100%. A genuine plateau at two neurons.
+const level3Data = {
+  classA: [[200,180],[180,220],[220,220],[160,260],[240,260],[200,300],[170,300],[230,300]],
+  classB: [
+    [200,60],[120,60],[280,60],[50,180],[350,180],[50,260],[350,260],[50,370],[350,370],[30,200],
+    [310,240],[200,350],[90,240],[200,130],[306,346],[94,346],[94,134],[306,134]
+  ]
+};
+
+const MAX_NEURONS = { 1: 1, 2: 2, 3: 3 };
+const DEFAULT_HINT = {
+  2: 'Stuck below 100%? A single straight line can only ever split the board in half. Try adding a second neuron.',
+  3: 'Even two neurons together cannot fully wrap this shape. Try adding a third neuron.'
+};
+
+let currentLevel = 1;
+let mode = 'AND';
+let activeNeurons = 1;
+let clickedPoint = null;
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+function dataForLevel() {
+  return currentLevel === 1 ? level1Data : (currentLevel === 2 ? level2Data : level3Data);
+}
+
+function pointSide(px, py, angleDeg, offset) {
+  const rad = angleDeg * Math.PI / 180;
+  const nx = Math.cos(rad), ny = Math.sin(rad);
+  const val = (px - CENTER.x) * nx + (py - CENTER.y) * ny;
+  return val > offset;
+}
+
+// Derives the actual weights and bias a real neuron would use, exactly
+// equivalent to pointSide: fires when wx*px + wy*py + bias > 0
+function weightsFromNeuron(n) {
+  const rad = n.angle * Math.PI / 180;
+  const wx = Math.cos(rad), wy = Math.sin(rad);
+  const bias = -(n.offset + wx * CENTER.x + wy * CENTER.y);
+  return { wx: wx, wy: wy, bias: bias };
+}
+
+function fmt(num) {
+  return (num >= 0 ? '+' : '') + num.toFixed(2);
+}
+
+function weightColor(w) {
+  return w >= 0 ? '#2d8a8a' : '#b03a2e';
+}
+
+function weightSpan(w) {
+  const cls = w >= 0 ? 'wpos' : 'wneg';
+  return '<span class="' + cls + '">' + fmt(w) + '</span>';
+}
+
+function getNeuron(id) {
+  return {
+    angle: parseFloat(document.getElementById(id + 'Angle').value),
+    offset: parseFloat(document.getElementById(id + 'Offset').value)
+  };
+}
+
+function activeNeuronList() {
+  const list = [getNeuron('n1')];
+  if (activeNeurons >= 2) list.push(getNeuron('n2'));
+  if (activeNeurons >= 3) list.push(getNeuron('n3'));
+  return list;
+}
+
+function predict(px, py) {
+  const neurons = activeNeuronList();
+  const sides = neurons.map(n => pointSide(px, py, n.angle, n.offset));
+  if (sides.length === 1) return sides[0];
+  return mode === 'AND' ? sides.every(s => s) : sides.some(s => s);
+}
+
+function combineBias(k) {
+  return mode === 'AND' ? -(k - 0.5) : -0.5;
+}
+
+// ---------- Network diagram ----------
+function edgeSVG(x1, y1, x2, y2, weight) {
+  const midX = (x1 + x2) / 2;
+  const midY = (y1 + y2) / 2;
+  const color = weightColor(weight);
+  return '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 +
+    '" stroke="' + color + '" stroke-width="2"></line>' +
+    '<rect x="' + (midX - 24) + '" y="' + (midY - 10) + '" width="48" height="18" fill="white" opacity="0.9"></rect>' +
+    '<text x="' + midX + '" y="' + (midY + 4) + '" text-anchor="middle" font-size="12" font-family="Arial" fill="' + color + '" font-weight="bold">' + fmt(weight) + '</text>';
+}
+
+function nodeSVG(x, y, label, subLabel, fill) {
+  let s = '<circle cx="' + x + '" cy="' + y + '" r="26" fill="' + fill + '" stroke="#003366" stroke-width="2"></circle>';
+  s += '<text x="' + x + '" y="' + (y + 4) + '" text-anchor="middle" font-size="13" font-family="Arial" font-weight="bold" fill="white">' + label + '</text>';
+  if (subLabel) {
+    s += '<text x="' + x + '" y="' + (y + 44) + '" text-anchor="middle" font-size="11" font-family="Arial" fill="#003366">' + subLabel + '</text>';
+  }
+  return s;
+}
+
+function renderNetwork() {
+  const container = document.getElementById('netDiagram');
+  const inX = 60, xTop = 60, yTop = 210;
+  const hidX = 340, outX = 600;
+  const k = activeNeurons;
+  const labels = ['N1', 'N2', 'N3'];
+  let svg = '';
+  const height = k === 1 ? 300 : (k === 2 ? 320 : 340);
+
+  let hidYs;
+  if (k === 1) hidYs = [135];
+  else if (k === 2) hidYs = [70, 230];
+  else hidYs = [50, 170, 290];
+
+  const weightsList = [];
+  for (let i = 0; i < k; i++) {
+    weightsList.push(weightsFromNeuron(getNeuron('n' + (i + 1))));
+  }
+
+  const outY = hidYs.reduce((a, b) => a + b, 0) / hidYs.length;
+
+  for (let i = 0; i < k; i++) {
+    svg += edgeSVG(inX, xTop, hidX, hidYs[i], weightsList[i].wx);
+    svg += edgeSVG(inX, yTop, hidX, hidYs[i], weightsList[i].wy);
+  }
+
+  svg += nodeSVG(inX, xTop, 'X', 'input', '#666');
+  svg += nodeSVG(inX, yTop, 'Y', 'input', '#666');
+
+  for (let i = 0; i < k; i++) {
+    svg += nodeSVG(hidX, hidYs[i], labels[i], 'bias ' + fmt(weightsList[i].bias), '#003366');
+  }
+
+  if (k === 1) {
+    svg += '<line x1="' + hidX + '" y1="' + hidYs[0] + '" x2="' + outX + '" y2="' + outY + '" stroke="#003366" stroke-width="2"></line>';
+    svg += nodeSVG(outX, outY, 'out', 'Class A / B', '#F2A900');
+  } else {
+    for (let i = 0; i < k; i++) {
+      svg += edgeSVG(hidX, hidYs[i], outX, outY, 1);
+    }
+    svg += nodeSVG(outX, outY, mode, 'bias ' + fmt(combineBias(k)), '#F2A900');
+  }
+
+  container.innerHTML = '<svg width="100%" viewBox="0 0 700 ' + height + '" xmlns="http://www.w3.org/2000/svg">' + svg + '</svg>';
+}
+
+// ---------- Formula panel ----------
+function neuronFormula(label, w) {
+  return label + ':&nbsp;&nbsp;' +
+    weightSpan(w.wx) + ' &middot; <span class="var">X</span> &nbsp;+&nbsp; ' +
+    weightSpan(w.wy) + ' &middot; <span class="var">Y</span> &nbsp;+&nbsp; ' +
+    weightSpan(w.bias) +
+    ' &nbsp;<span class="rule">&gt; 0 &nbsp;&rarr;&nbsp; fires (1), else 0</span>';
+}
+
+function renderFormula() {
+  const el = document.getElementById('formulaDisplay');
+  const k = activeNeurons;
+  const labels = ['N1', 'N2', 'N3'];
+  let html = '';
+  for (let i = 0; i < k; i++) {
+    const w = weightsFromNeuron(getNeuron('n' + (i + 1)));
+    html += '<div class="formula-block">' + neuronFormula(labels[i], w) + '</div>';
+  }
+  if (k > 1) {
+    const names = labels.slice(0, k).join(', ');
+    const combineWord = mode === 'AND'
+      ? 'Predict Class A only if <b>all</b> of ' + names + ' fire.'
+      : 'Predict Class A if <b>any</b> of ' + names + ' fire.';
+    html += '<div class="formula-block"><span class="rule">' + combineWord + ' Otherwise, predict Class B.</span></div>';
+  }
+  el.innerHTML = html;
+}
+
+// ---------- Test a point ----------
+function computeWorked(w, px, py) {
+  const sum = w.wx * px + w.wy * py + w.bias;
+  return { sum: sum, fires: sum > 0 };
+}
+
+function renderTest() {
+  const el = document.getElementById('testDisplay');
+  if (!clickedPoint) {
+    el.innerHTML = '<span class="test-empty">Click anywhere on the board above to see the exact math for that point.</span>';
+    return;
+  }
+  const px = Math.round(clickedPoint.x), py = Math.round(clickedPoint.y);
+  const k = activeNeurons;
+  const labels = ['N1', 'N2', 'N3'];
+  let html = '<div class="test-result">You clicked (X=' + px + ', Y=' + py + ')<br><br>';
+
+  const fires = [];
+  for (let i = 0; i < k; i++) {
+    const w = weightsFromNeuron(getNeuron('n' + (i + 1)));
+    const r = computeWorked(w, px, py);
+    fires.push(r.fires);
+    html += labels[i] + ':&nbsp; ' + weightSpan(w.wx) + '&times;' + px + ' + ' + weightSpan(w.wy) + '&times;' + py + ' + ' + weightSpan(w.bias) +
+      ' &nbsp;=&nbsp; ' + r.sum.toFixed(2) + ' &nbsp;&rarr;&nbsp; ' + (r.fires ? 'fires (1)' : 'does not fire (0)') + '<br>';
+  }
+
+  let finalPredictA;
+  if (k > 1) {
+    finalPredictA = mode === 'AND' ? fires.every(f => f) : fires.some(f => f);
+    html += '<br>Combine (' + mode + '):&nbsp; ' + (finalPredictA ? 'condition met' : 'condition not met');
+  } else {
+    finalPredictA = fires[0];
+  }
+  html += '</div>';
+
+  const verdictColor = finalPredictA ? '#2d8a8a' : '#b03a2e';
+  const verdictText = finalPredictA ? 'Predicted: Class A' : 'Predicted: Class B';
+  html += '<div class="test-verdict" style="background:' + verdictColor + '22; color:' + verdictColor + ';">' + verdictText + '</div>';
+
+  el.innerHTML = html;
+}
+
+// ---------- Board ----------
+function drawBoundaryLine(n, color) {
+  const rad = n.angle * Math.PI / 180;
+  const nx = Math.cos(rad), ny = Math.sin(rad);
+  const dx = -ny, dy = nx;
+  const px = CENTER.x + nx * n.offset;
+  const py = CENTER.y + ny * n.offset;
+  const len = 600;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(px - dx * len, py - dy * len);
+  ctx.lineTo(px + dx * len, py + dy * len);
+  ctx.stroke();
+}
+
+function drawPoint(px, py, color, misclassified) {
+  ctx.beginPath();
+  ctx.arc(px, py, 8, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  if (misclassified) {
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(px, py, 11, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+function render() {
+  const data = dataForLevel();
+  ctx.clearRect(0, 0, 400, 400);
+
+  const cell = 10;
+  for (let x = 0; x < 400; x += cell) {
+    for (let y = 0; y < 400; y += cell) {
+      const cx = x + cell / 2, cy = y + cell / 2;
+      const pos = predict(cx, cy);
+      ctx.fillStyle = pos ? 'rgba(45,138,138,0.12)' : 'rgba(176,58,46,0.12)';
+      ctx.fillRect(x, y, cell, cell);
+    }
+  }
+
+  ctx.strokeStyle = 'rgba(0,51,102,0.15)';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#666';
+  ctx.font = '10px Arial';
+  for (let g = 0; g <= 400; g += 50) {
+    ctx.beginPath();
+    ctx.moveTo(g, 0); ctx.lineTo(g, 400);
+    ctx.moveTo(0, g); ctx.lineTo(400, g);
+    ctx.stroke();
+    ctx.fillText(String(g), g + 2, 396);
+    ctx.fillText(String(g), 2, g + 10 > 396 ? 396 : g + 10);
+  }
+  ctx.fillStyle = '#003366';
+  ctx.font = 'bold 12px Arial';
+  ctx.fillText('X \u2192', 370, 396);
+  ctx.fillText('Y \u2192', 2, 30);
+
+  const lineColors = ['#003366', '#8a6d00', '#7a2d8a'];
+  for (let i = 0; i < activeNeurons; i++) {
+    drawBoundaryLine(getNeuron('n' + (i + 1)), lineColors[i]);
+  }
+
+  let correct = 0, total = 0;
+  data.classA.forEach(([px, py]) => {
+    total++;
+    const pos = predict(px, py);
+    const isCorrect = pos === true;
+    if (isCorrect) correct++;
+    drawPoint(px, py, '#2d8a8a', !isCorrect);
+  });
+  data.classB.forEach(([px, py]) => {
+    total++;
+    const pos = predict(px, py);
+    const isCorrect = pos === false;
+    if (isCorrect) correct++;
+    drawPoint(px, py, '#b03a2e', !isCorrect);
+  });
+
+  const accuracy = Math.round((correct / total) * 100);
+  const accEl = document.getElementById('accuracyDisplay');
+  accEl.textContent = accuracy + '%';
+  accEl.className = 'accuracy ' + (accuracy === 100 ? 'high' : 'low');
+
+  const banner = document.getElementById('clearedBanner');
+  if (accuracy === 100) {
+    banner.style.display = 'block';
+    banner.textContent = activeNeurons > 1
+      ? 'Level Cleared! ' + activeNeurons + ' neurons working together solved what fewer could not.'
+      : 'Level Cleared!';
+  } else {
+    banner.style.display = 'none';
+  }
+
+  renderNetwork();
+  renderFormula();
+
+  if (clickedPoint) {
+    ctx.beginPath();
+    ctx.moveTo(clickedPoint.x - 8, clickedPoint.y);
+    ctx.lineTo(clickedPoint.x + 8, clickedPoint.y);
+    ctx.moveTo(clickedPoint.x, clickedPoint.y - 8);
+    ctx.lineTo(clickedPoint.x, clickedPoint.y + 8);
+    ctx.strokeStyle = '#F2A900';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(clickedPoint.x, clickedPoint.y, 10, 0, Math.PI * 2);
+    ctx.strokeStyle = '#003366';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+}
+
+// ---------- Level / neuron controls ----------
+function refreshControlVisibility() {
+  const max = MAX_NEURONS[currentLevel];
+  document.getElementById('neuron2Panel').style.display = activeNeurons >= 2 ? 'block' : 'none';
+  document.getElementById('neuron3Panel').style.display = activeNeurons >= 3 ? 'block' : 'none';
+  document.getElementById('combinePanel').style.display = activeNeurons >= 2 ? 'block' : 'none';
+
+  const addBtn = document.getElementById('addNeuronBtn');
+  const hint = document.getElementById('levelHint');
+  if (activeNeurons < max) {
+    addBtn.style.display = 'block';
+    addBtn.textContent = 'Add Neuron ' + (activeNeurons + 1);
+    hint.style.display = 'block';
+    hint.textContent = DEFAULT_HINT[activeNeurons + 1] || '';
+  } else {
+    addBtn.style.display = 'none';
+    hint.style.display = 'none';
+  }
+}
+
+function switchLevel(level) {
+  currentLevel = level;
+  activeNeurons = 1;
+  mode = 'AND';
+  clickedPoint = null;
+  document.getElementById('tabLevel1').classList.toggle('active', level === 1);
+  document.getElementById('tabLevel2').classList.toggle('active', level === 2);
+  document.getElementById('tabLevel3').classList.toggle('active', level === 3);
+  document.getElementById('modeAnd').classList.add('active');
+  document.getElementById('modeOr').classList.remove('active');
+  refreshControlVisibility();
+  render();
+  renderTest();
+}
+
+function addNeuron() {
+  const max = MAX_NEURONS[currentLevel];
+  if (activeNeurons < max) activeNeurons++;
+  refreshControlVisibility();
+  render();
+  renderTest();
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('modeAnd').classList.toggle('active', m === 'AND');
+  document.getElementById('modeOr').classList.toggle('active', m === 'OR');
+  render();
+  renderTest();
+}
+
+function resetLevel() {
+  document.getElementById('n1Angle').value = 0;
+  document.getElementById('n1Offset').value = 0;
+  document.getElementById('n2Angle').value = 90;
+  document.getElementById('n2Offset').value = 0;
+  document.getElementById('n3Angle').value = 270;
+  document.getElementById('n3Offset').value = -130;
+  activeNeurons = 1;
+  mode = 'AND';
+  clickedPoint = null;
+  document.getElementById('modeAnd').classList.add('active');
+  document.getElementById('modeOr').classList.remove('active');
+  refreshControlVisibility();
+  updateSliderLabels();
+  render();
+  renderTest();
+}
+
+function updateSliderLabels() {
+  ['n1', 'n2', 'n3'].forEach(id => {
+    document.getElementById(id + 'AngleVal').textContent = document.getElementById(id + 'Angle').value;
+    document.getElementById(id + 'OffsetVal').textContent = document.getElementById(id + 'Offset').value;
+  });
+}
+
+canvas.addEventListener('click', function(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const x = (e.clientX - rect.left) * scaleX;
+  const y = (e.clientY - rect.top) * scaleY;
+  clickedPoint = { x: x, y: y };
+  render();
+  renderTest();
+});
+
+['n1Angle','n1Offset','n2Angle','n2Offset','n3Angle','n3Offset'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    updateSliderLabels();
+    render();
+    renderTest();
+  });
+});
+
+updateSliderLabels();
+refreshControlVisibility();
+render();
+</script>
+
+</body>
+</html>
