@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Why Deep Learning Needs More Than One Line — Neural Network Demo</title>
+<style>
+  :root{
+    --paper:#F6F1E7;
+    --panel:#FBF8F2;
+    --ink:#1B2430;
+    --ink-soft:#4B5568;
+    --grid:#D8D2C2;
+    --teal:#3E6E75;
+    --teal-soft:#DCE9EA;
+    --amber:#C97F2B;
+    --amber-soft:#F3E1C8;
+    --brick:#B23A2E;
+    --brick-soft:#F2DBD8;
+    --sage:#4F7A5A;
+    --sage-soft:#DCE8DF;
+    --violet:#7A5FA6;
+    --violet-soft:#E9E2F2;
+    --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--paper); color:var(--ink); font-family:var(--font-body); line-height:1.5; }
+  .wrap{ max-width:1120px; margin:0 auto; padding:32px 20px 64px; }
+
+  header.hero{ border-bottom:1px solid var(--grid); padding-bottom:24px; margin-bottom:28px; }
+  .eyebrow{
+    font-family:var(--font-mono); font-size:12px; letter-spacing:0.12em;
+    text-transform:uppercase; color:var(--violet); margin:0 0 10px;
+  }
+  h1{ font-family:var(--font-display); font-weight:700; font-size:clamp(28px,4vw,42px); line-height:1.1; margin:0 0 12px; }
+  .lede{ max-width:680px; color:var(--ink-soft); font-size:16px; margin:0; }
+
+  .source-note{
+    margin-top:14px; padding:10px 14px; background:var(--panel);
+    border:1px solid var(--grid); border-left:3px solid var(--violet);
+    border-radius:4px; font-size:13px; color:var(--ink-soft); max-width:680px;
+  }
+
+  .steps{ display:flex; flex-wrap:wrap; gap:18px; margin:22px 0 0; padding:0; list-style:none; }
+  .steps li{ flex:1 1 220px; background:var(--panel); border:1px solid var(--grid); border-radius:4px; padding:12px 14px; font-size:14px; color:var(--ink-soft); }
+  .steps li strong{ display:block; font-family:var(--font-mono); font-size:12px; color:var(--violet); margin-bottom:4px; }
+
+  .stage{ display:grid; grid-template-columns: 1.5fr 1fr; gap:24px; align-items:start; }
+  @media (max-width: 860px){ .stage{ grid-template-columns: 1fr; } }
+
+  .plot-card, .panel-card{ background:var(--panel); border:1px solid var(--grid); border-radius:6px; padding:18px; }
+  .plot-card h2, .panel-card h2{ font-family:var(--font-display); font-size:19px; margin:0 0 4px; }
+  .plot-hint{ font-size:13px; color:var(--ink-soft); margin:0 0 12px; }
+
+  .mode-toggle{ display:flex; gap:8px; margin-bottom:12px; }
+  .mode-toggle button{
+    flex:1; padding:8px 10px; font-size:13px; border-radius:4px;
+    border:1px solid var(--grid); background:#fff; color:var(--ink-soft); cursor:pointer; font-weight:600;
+  }
+  .mode-toggle button.active{ background:var(--violet); color:#fff; border-color:var(--violet); }
+
+  .legend{ display:flex; gap:16px; font-size:12px; color:var(--ink-soft); margin-bottom:10px; flex-wrap:wrap; align-items:center; }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .swatch{ width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .swatch.pass{ background:var(--teal); }
+  .swatch.fail{ background:var(--brick); }
+
+  canvas#plot{
+    width:100%; height:auto; display:block; cursor:crosshair;
+    background:#FEFDFA; border:1px solid var(--grid); border-radius:3px;
+  }
+
+  .readout-row{ display:flex; gap:12px; }
+  .sse-readout{ flex:1; background:var(--violet-soft); border-radius:4px; padding:12px 14px; text-align:center; }
+  .sse-readout .label{ font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-soft); font-family:var(--font-mono); }
+  .sse-readout .number{ font-family:var(--font-mono); font-size:24px; font-weight:600; color:var(--ink); }
+
+  .panel-card{ display:flex; flex-direction:column; gap:16px; }
+  .control{ display:flex; flex-direction:column; gap:6px; }
+  .control label{ font-size:13px; font-weight:600; display:flex; justify-content:space-between; }
+  .control label .val{ font-family:var(--font-mono); color:var(--violet); }
+  input[type="range"]{ width:100%; accent-color:var(--violet); }
+  input[type="range"]:disabled{ opacity:0.6; }
+  input[type="number"]{ width:100%; padding:6px 8px; border:1px solid var(--grid); border-radius:4px; font-family:var(--font-mono); font-size:13px; }
+  input[type="range"]:focus-visible, input[type="number"]:focus-visible, button:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+
+  .btn-row{ display:flex; flex-direction:column; gap:10px; }
+  button{
+    font-family:var(--font-body); font-size:14px; font-weight:600; padding:10px 14px;
+    border-radius:4px; border:1px solid var(--grid); background:#fff; color:var(--ink);
+    cursor:pointer; transition: background 0.15s ease, transform 0.1s ease;
+  }
+  button:hover{ background:var(--amber-soft); }
+  button:active{ transform: translateY(1px); }
+  button.primary{ background:var(--violet); color:#fff; border-color:var(--violet); }
+  button.primary:hover{ background:#634c88; }
+  button:disabled{ background:var(--grid); border-color:var(--grid); color:var(--ink-soft); cursor:not-allowed; }
+
+  .section-divider{ border-top:1px dashed var(--grid); padding-top:14px; }
+
+  .predict-box{ display:flex; flex-direction:column; gap:8px; }
+  .predict-box .fields{ display:grid; grid-template-columns: 1fr 1fr; gap:8px; }
+  .predict-box label{ font-size:11px; color:var(--ink-soft); display:block; margin-bottom:3px; }
+  .predict-result{ display:none; border-radius:4px; padding:12px 14px; text-align:center; }
+  .predict-result.show{ display:block; }
+  .predict-result .label{ font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink-soft); font-family:var(--font-mono); }
+  .predict-result .number{ font-family:var(--font-mono); font-size:22px; font-weight:600; }
+  .predict-result .sub{ font-size:12px; color:var(--ink-soft); margin-top:4px; }
+
+  .explainer{ margin-top:32px; background:var(--panel); border:1px solid var(--grid); border-radius:6px; padding:20px 22px; }
+  .explainer h2{ font-family:var(--font-display); font-size:20px; margin:0 0 10px; }
+  .explainer p{ color:var(--ink-soft); font-size:15px; margin:0 0 10px; }
+  .explainer dl{ display:grid; grid-template-columns: 170px 1fr; gap:6px 14px; margin:14px 0 0; font-size:14px; }
+  .explainer dt{ font-family:var(--font-mono); font-weight:600; color:var(--violet); }
+  .explainer dd{ margin:0; color:var(--ink); }
+
+  .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  @media (prefers-reduced-motion: reduce){ button{ transition:none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">Unit 2 &middot; Deep Learning Companion Demo</p>
+    <h1>Why Deep Learning Needs More Than One Line</h1>
+    <p class="lede">The regression demos in this series fit something straight through the data: a line, then a plane. Some real patterns can't be captured that way, no matter how you angle it. This one can't be fixed by adjusting two numbers &mdash; it needs a genuinely different kind of model. That's the actual reason "deep" learning exists.</p>
+    <p class="source-note">The story: a factory molds rubber seal rings. Each ring is measured on two things during production &mdash; how far its curing temperature drifted from target, and how far its molding pressure drifted from target. A ring that's off-target on <em>both</em> by too much, combined, leaks and fails inspection &mdash; even if either reading alone looks fine. That "combined distance from target" rule is standard in precision manufacturing (engineers call it a circular tolerance zone), and it's exactly why the true Pass/Fail boundary is a ring, not a line.</p>
+
+    <ol class="steps">
+      <li><strong>Step 1</strong>Try to separate Pass from Fail with a single straight line. Watch the accuracy ceiling &mdash; no angle or position gets you close to 100%.</li>
+      <li><strong>Step 2</strong>Click "Train the Network" to add a hidden layer of neurons and watch the boundary bend to actually fit the pattern.</li>
+      <li><strong>Step 3</strong>Change how many hidden neurons the network has, and watch what it can and can't learn to represent.</li>
+    </ol>
+  </header>
+
+  <section class="stage">
+    <div class="plot-card">
+      <h2>Seal Ring Inspection: Pass or Fail?</h2>
+      <p class="plot-hint">Each dot is one seal ring. Position shows how far its curing temperature and molding pressure drifted from target, in standardized deviation units (0 = exactly on target).</p>
+
+      <div class="source-note" style="margin-top:0; margin-bottom:14px;">
+        <strong>The rule being applied:</strong> combined drift = &radic;(temp&sup2; + pressure&sup2;). A ring <strong style="color:#3E6E75;">passes</strong> if that combined drift is under about 0.42; it <strong style="color:#B23A2E;">fails</strong> if it's over about 0.68. (The gap between those two numbers is deliberate, to keep this a clean teaching example &mdash; real tolerance zones don't leave gaps.) Notice the rule never looks at temperature or pressure alone. It's their <em>combination</em> that decides, which is exactly what makes the boundary a ring instead of a line.
+        <div style="margin-top:8px;">8 rings (dashed outline) are <strong>deliberately mislabeled</strong> &mdash; a stand-in for real inspection error. A well-trained network should still get most of these wrong, on purpose. If it ever hits 100%, that's a sign it's memorizing exceptions instead of learning the real rule.</div>
+      </div>
+
+      <div class="mode-toggle">
+        <button id="lineModeBtn" class="active">Manual Line</button>
+        <button id="networkModeBtn">Trained Network</button>
+      </div>
+      <div class="legend">
+        <span><span class="swatch pass"></span>Pass</span>
+        <span><span class="swatch fail"></span>Fail</span>
+        <span style="border:1.5px dashed #1B2430; border-radius:50%; width:9px; height:9px; display:inline-block;"></span> Deliberately mislabeled (inspection error)
+      </div>
+      <canvas id="plot" width="700" height="700" role="img" aria-label="Scatter plot of seal rings by temperature and pressure drift from target, with either a manual line boundary or a trained neural network decision boundary overlaid"></canvas>
+
+      <div id="exampleUnits" class="source-note" style="border-left-color:var(--amber);"></div>
+    </div>
+
+    <div class="panel-card">
+      <div id="lineControls">
+        <h2>Your straight line</h2>
+        <p class="plot-hint">A line has two knobs: which way it points, and how far from center it sits.</p>
+
+        <div class="control">
+          <label for="angle">Line Angle <span class="val" id="angleVal">45&deg;</span></label>
+          <input type="range" id="angle" min="0" max="180" step="1" value="45">
+        </div>
+        <div class="control">
+          <label for="offset">Line Offset <span class="val" id="offsetVal">0.00</span></label>
+          <input type="range" id="offset" min="-1.4" max="1.4" step="0.02" value="0">
+        </div>
+
+        <div class="readout-row" style="margin-top:14px;">
+          <div class="sse-readout">
+            <div class="label">Best Accuracy So Far</div>
+            <div class="number" id="bestLineAcc">&mdash;</div>
+          </div>
+          <div class="sse-readout">
+            <div class="label">Current Line</div>
+            <div class="number" id="currentLineAcc">&mdash;</div>
+          </div>
+        </div>
+        <p class="plot-hint" id="lineNote" style="margin-top:8px;"></p>
+      </div>
+
+      <div id="networkControls" style="display:none;">
+        <h2>Your network</h2>
+        <p class="plot-hint">2 inputs &rarr; a hidden layer of neurons &rarr; 1 output. Each hidden neuron is its own weighted sum plus bias, same as before &mdash; but with a bend built in.</p>
+
+        <div class="control">
+          <label for="hiddenCount">Hidden Neurons <span class="val" id="hiddenCountVal">4</span></label>
+          <input type="range" id="hiddenCount" min="1" max="8" step="1" value="4">
+        </div>
+
+        <div>
+          <svg id="networkDiagram" viewBox="0 0 300 220" style="width:100%; height:auto; background:#FEFDFA; border:1px solid var(--grid); border-radius:4px; margin-top:6px;" role="img" aria-label="Diagram of the network's nodes and connections, with line thickness and color showing each connection's current weight"></svg>
+          <div style="display:flex; gap:14px; font-size:11px; color:var(--ink-soft); margin-top:6px; flex-wrap:wrap;">
+            <span style="display:inline-flex; align-items:center; gap:5px;"><span style="width:14px; height:2px; background:#3E6E75; display:inline-block;"></span>Positive weight</span>
+            <span style="display:inline-flex; align-items:center; gap:5px;"><span style="width:14px; height:2px; background:#B23A2E; display:inline-block;"></span>Negative weight</span>
+            <span>Thicker line = larger weight</span>
+          </div>
+        </div>
+
+        <div class="readout-row" style="margin-top:14px;">
+          <div class="sse-readout">
+            <div class="label">Loss</div>
+            <div class="number" id="lossVal">&mdash;</div>
+          </div>
+          <div class="sse-readout">
+            <div class="label">Accuracy</div>
+            <div class="number" id="netAccVal">&mdash;</div>
+          </div>
+        </div>
+        <p class="plot-hint" id="epochNote" style="margin-top:8px;">Not trained yet.</p>
+
+        <div class="btn-row" style="margin-top:12px;">
+          <button class="primary" id="trainBtn">Train the Network</button>
+          <button id="resetNetBtn">Reset Network</button>
+        </div>
+      </div>
+
+      <div class="section-divider predict-box">
+        <strong style="font-size:13px;">Make a prediction</strong>
+        <p class="plot-hint" style="margin:0;">Enter a unit's readings and ask the trained network to classify it. Click the plot to do this visually instead.</p>
+        <div class="fields">
+          <div><label for="predictTemp">Temperature drift</label><input type="number" id="predictTemp" min="-1.1" max="1.1" step="0.05" placeholder="-1.1 to 1.1"></div>
+          <div><label for="predictPressure">Pressure drift</label><input type="number" id="predictPressure" min="-1.1" max="1.1" step="0.05" placeholder="-1.1 to 1.1"></div>
+        </div>
+        <button id="predictBtn">Predict</button>
+        <div class="predict-result" id="predictResult">
+          <div class="label">Predicted</div>
+          <div class="number" id="predictedLabel">&mdash;</div>
+          <div class="sub" id="predictSub"></div>
+        </div>
+      </div>
+
+      <span class="sr-only" id="statusRegion" aria-live="polite"></span>
+    </div>
+  </section>
+
+  <section class="explainer">
+    <h2>What just happened</h2>
+    <p>A straight line has exactly two things you can adjust: which way it points, and where it sits. That's genuinely all the freedom it has. When the true boundary between Pass and Fail is a ring around a target, no setting of those two numbers does better than roughly splitting the data in half by luck &mdash; the shape a line can draw and the shape the data actually needs are fundamentally different things. More tweaking doesn't fix that. A different kind of model does.</p>
+    <p>A hidden layer of neurons changes what shape is even possible to draw. Each hidden neuron computes a weighted sum of the two inputs plus a bias &mdash; the same math your regression models used &mdash; but then bends the result through a non-linear function (here, tanh) before passing it on. Pushing an input all the way through every layer like this, until the network produces a prediction, is called the forward pass. One bent line still isn't much. Several bent lines, combined by the output neuron, can wrap around a shape a single line never could. That combination is what "deep" refers to: not one weighted sum, but layers of them, each one allowed to bend.</p>
+    <p>Training the network runs the same idea as "Reveal Best-Fit" from the earlier demos &mdash; search for the numbers that minimize error &mdash; just with far more numbers being searched at once. After each forward pass, the prediction gets compared against the known Pass/Fail label for that unit &mdash; that comparison is the supervised part; there's no error to correct without a real answer to check against. The error then flows backward through every layer, computing how much each weight contributed to the mistake. That backward pass is backpropagation. The diagram above the Train button shows those numbers directly: every line is one real weight, teal for positive, brick for negative, thickness for magnitude. Watch it while training runs &mdash; the lines are moving because the numbers are changing, not for decoration. Try dropping the hidden neuron count to 1 or 2: the network usually can't fully wrap the boundary anymore. There isn't enough flexibility. Push it up to 6 or 8 and it usually can. That trade-off between how much a network can represent and how many parameters it costs is the central design question in deep learning, and it's the same question whether the network has 8 neurons or 8 billion.</p>
+    <p>Notice accuracy tops out around 93%, no matter how many hidden neurons you give it or how long you train. That's not a limitation of the network &mdash; it's the 8 deliberately mislabeled rings (dashed outline) doing their job. They sit solidly in "obviously Pass" or "obviously Fail" territory but carry the wrong label, standing in for real inspection error. A network with enough neurons technically <em>could</em> bend its boundary into a strange shape to loop around and catch those 8 too, but a well-behaved one won't &mdash; smoothly curving around real noise costs more error elsewhere than it's worth. That restraint is worth watching for. A network that stretches itself thin to fit every last point, including the outliers, isn't smarter; it's overfitting, and it usually performs worse on new data it hasn't seen.</p>
+    <dl>
+      <dt>Hidden layer</dt><dd>A layer of neurons between input and output that the model computes internally, not something you feed in directly.</dd>
+      <dt>Forward pass</dt><dd>Pushing an input all the way through the network, layer by layer, until it produces a prediction.</dd>
+      <dt>Activation function</dt><dd>The non-linear bend (here, tanh) applied after each weighted sum &mdash; without it, stacking layers would still only draw straight lines.</dd>
+      <dt>Capacity</dt><dd>Roughly, how complex a shape a network can represent &mdash; more neurons, more capacity.</dd>
+      <dt>Backpropagation</dt><dd>The method for computing how every weight in every layer should change to reduce error, working backward from the output.</dd>
+      <dt>Epoch</dt><dd>One full pass of training over every example in the dataset.</dd>
+      <dt>Overfitting</dt><dd>When a model bends itself around noise or outliers instead of the real pattern &mdash; often looks like <em>better</em> training accuracy, but performs worse on new data.</dd>
+    </dl>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('plot');
+  const ctx = canvas.getContext('2d');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const DOM_MIN = -1.15, DOM_MAX = 1.15;
+  let displayW = 640, displayH = 640;
+
+  function resizeCanvas(){
+    displayW = canvas.clientWidth || 560;
+    displayH = displayW; // square
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = displayW * dpr;
+    canvas.height = displayH * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function sx(v){ return ((v - DOM_MIN) / (DOM_MAX - DOM_MIN)) * displayW; }
+  function sy(v){ return displayH - ((v - DOM_MIN) / (DOM_MAX - DOM_MIN)) * displayH; }
+  function invX(px){ return DOM_MIN + (px / displayW) * (DOM_MAX - DOM_MIN); }
+  function invY(py){ return DOM_MIN + ((displayH - py) / displayH) * (DOM_MAX - DOM_MIN); }
+
+  // ---- deterministic dataset: a "quality control tolerance ring" ----
+  function mulberry32(seed){
+    return function(){
+      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+      let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(42);
+  const DATA = [];
+  for(let i=0;i<55;i++){
+    const a = rng()*Math.PI*2, r = rng()*0.42;
+    DATA.push({ x: r*Math.cos(a), y: r*Math.sin(a), label: 0 }); // 0 = Pass
+  }
+  for(let i=0;i<55;i++){
+    const a = rng()*Math.PI*2, r = 0.68 + rng()*0.37;
+    DATA.push({ x: r*Math.cos(a), y: r*Math.sin(a), label: 1 }); // 1 = Fail
+  }
+  // deliberately mislabeled units, simulating real inspection error: a handful of
+  // solidly-in-tolerance rings marked Fail, and solidly-out-of-tolerance rings marked
+  // Pass. No amount of training should "fix" these — a good model ignores them as
+  // outliers rather than bending its boundary to fit them.
+  for(let i=0;i<4;i++){
+    const a = rng()*Math.PI*2, r = rng()*0.3;
+    DATA.push({ x: r*Math.cos(a), y: r*Math.sin(a), label: 1, noisy: true });
+  }
+  for(let i=0;i<4;i++){
+    const a = rng()*Math.PI*2, r = 0.78 + rng()*0.22;
+    DATA.push({ x: r*Math.cos(a), y: r*Math.sin(a), label: 0, noisy: true });
+  }
+
+  const COLORS = { pass:'#3E6E75', fail:'#B23A2E' };
+
+  (function renderExampleUnits(){
+    function drift(p){ return Math.sqrt(p.x*p.x + p.y*p.y); }
+    const passEx = DATA.filter(p => p.label === 0 && !p.noisy).slice(0, 2);
+    const failEx = DATA.filter(p => p.label === 1 && !p.noisy).slice(0, 2);
+    const noisyEx = DATA.filter(p => p.noisy).slice(0, 1);
+    const rows = [...passEx, ...failEx].map((p) => {
+      const d = drift(p);
+      const label = p.label === 0 ? 'PASS' : 'FAIL';
+      const color = p.label === 0 ? '#3E6E75' : '#B23A2E';
+      return `<div style="margin-bottom:4px;">Ring &mdash; temp ${p.x>=0?'+':''}${p.x.toFixed(2)}, pressure ${p.y>=0?'+':''}${p.y.toFixed(2)} &rarr; combined drift ${d.toFixed(2)} &rarr; <strong style="color:${color};">${label}</strong></div>`;
+    }).join('');
+    const noisyRow = noisyEx.map((p) => {
+      const d = drift(p);
+      const label = p.label === 0 ? 'PASS' : 'FAIL';
+      const color = p.label === 0 ? '#3E6E75' : '#B23A2E';
+      const trueLabel = d < 0.42 ? 'PASS' : d > 0.68 ? 'FAIL' : 'ambiguous';
+      return `<div style="margin-top:6px; padding-top:6px; border-top:1px dashed var(--grid);">Ring &mdash; temp ${p.x>=0?'+':''}${p.x.toFixed(2)}, pressure ${p.y>=0?'+':''}${p.y.toFixed(2)} &rarr; combined drift ${d.toFixed(2)} (rule says ${trueLabel}) &rarr; labeled <strong style="color:${color};">${label}</strong> anyway &mdash; a deliberate inspection error.</div>`;
+    }).join('');
+    document.getElementById('exampleUnits').innerHTML = `<strong>A few real rings from this dataset:</strong><div style="margin-top:6px;">${rows}${noisyRow}</div>`;
+  })();
+
+  // ---- UI refs ----
+  const lineModeBtn = document.getElementById('lineModeBtn');
+  const networkModeBtn = document.getElementById('networkModeBtn');
+  const lineControls = document.getElementById('lineControls');
+  const networkControls = document.getElementById('networkControls');
+  const angleInput = document.getElementById('angle');
+  const offsetInput = document.getElementById('offset');
+  const angleVal = document.getElementById('angleVal');
+  const offsetVal = document.getElementById('offsetVal');
+  const bestLineAcc = document.getElementById('bestLineAcc');
+  const currentLineAcc = document.getElementById('currentLineAcc');
+  const lineNote = document.getElementById('lineNote');
+  const hiddenCountInput = document.getElementById('hiddenCount');
+  const hiddenCountVal = document.getElementById('hiddenCountVal');
+  const lossVal = document.getElementById('lossVal');
+  const netAccVal = document.getElementById('netAccVal');
+  const epochNote = document.getElementById('epochNote');
+  const trainBtn = document.getElementById('trainBtn');
+  const resetNetBtn = document.getElementById('resetNetBtn');
+  const predictTemp = document.getElementById('predictTemp');
+  const predictPressure = document.getElementById('predictPressure');
+  const predictBtn = document.getElementById('predictBtn');
+  const predictResult = document.getElementById('predictResult');
+  const predictedLabelEl = document.getElementById('predictedLabel');
+  const predictSub = document.getElementById('predictSub');
+  const statusRegion = document.getElementById('statusRegion');
+
+  let mode = 'line';
+  let bestAcc = 0;
+  let predictionPoint = null;
+  let animating = false;
+
+  function clamp(v,lo,hi){ return Math.max(lo, Math.min(hi, v)); }
+
+  // ---- manual line ----
+  function lineAccuracy(angleDeg, offset){
+    const rad = angleDeg * Math.PI / 180;
+    const nx = Math.cos(rad), ny = Math.sin(rad);
+    let correct = 0;
+    DATA.forEach(p => {
+      const score = p.x*nx + p.y*ny - offset;
+      const pred = score > 0 ? 1 : 0;
+      if(pred === p.label) correct++;
+    });
+    return correct / DATA.length;
+  }
+
+  // ---- tiny neural network: 2 -> H (tanh) -> 1 (sigmoid) ----
+  let H = parseInt(hiddenCountInput.value, 10);
+  let W1, b1, W2, b2;
+  let trainedEpochs = 0;
+  let netTrainedOnce = false;
+
+  function initNetwork(){
+    H = parseInt(hiddenCountInput.value, 10);
+    W1 = Array.from({length:2}, () => Array.from({length:H}, () => (Math.random()-0.5)*2));
+    b1 = Array.from({length:H}, () => 0);
+    W2 = Array.from({length:H}, () => (Math.random()-0.5)*2);
+    b2 = 0;
+    trainedEpochs = 0;
+    netTrainedOnce = false;
+    lossVal.textContent = '\u2014';
+    netAccVal.textContent = '\u2014';
+    epochNote.textContent = 'Not trained yet.';
+    renderNetworkDiagram();
+  }
+
+  // ---- network architecture diagram: real nodes, real weights ----
+  const diagramSvg = document.getElementById('networkDiagram');
+  const NS = 'http://www.w3.org/2000/svg';
+  function dEl(tag, attrs){
+    const e = document.createElementNS(NS, tag);
+    for(const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+  function weightColor(w){ return w >= 0 ? '#3E6E75' : '#B23A2E'; }
+  function weightWidth(w){ return Math.max(0.6, Math.min(5, Math.abs(w)*2)); }
+  function weightOpacity(w){ return Math.max(0.3, Math.min(1, 0.3 + Math.abs(w)*0.35)); }
+
+  function renderNetworkDiagram(){
+    diagramSvg.innerHTML = '';
+    const HGT = Math.max(220, H*48);
+    const inX = 34, hidX = 150, outX = 266;
+    diagramSvg.setAttribute('viewBox', `0 0 300 ${HGT}`);
+    const inYs = [HGT*0.32, HGT*0.68];
+    const hidYs = Array.from({length:H}, (_,j) => HGT/(H+1)*(j+1));
+    const outY = HGT/2;
+
+    function labelLine(x1,y1,x2,y2,w){
+      const mx = x1 + (x2-x1)*0.42, my = y1 + (y2-y1)*0.42; // closer to the "from" end, spaces labels apart
+      const t = dEl('text', {
+        x:mx, y:my, 'text-anchor':'middle', 'font-size':'7.5',
+        'font-family':'ui-monospace, monospace', fill: weightColor(w),
+        stroke:'#FBF8F2', 'stroke-width':'3', 'paint-order':'stroke'
+      });
+      t.textContent = (w >= 0 ? '+' : '') + w.toFixed(2);
+      diagramSvg.appendChild(t);
+    }
+
+    // connections: input -> hidden
+    for(let j=0;j<H;j++){
+      for(let i=0;i<2;i++){
+        const w = W1[i][j];
+        diagramSvg.appendChild(dEl('line', {
+          x1:inX, y1:inYs[i], x2:hidX, y2:hidYs[j],
+          stroke: weightColor(w), 'stroke-width': weightWidth(w), opacity: weightOpacity(w)
+        }));
+        labelLine(inX, inYs[i], hidX, hidYs[j], w);
+      }
+    }
+    // connections: hidden -> output
+    for(let j=0;j<H;j++){
+      const w = W2[j];
+      diagramSvg.appendChild(dEl('line', {
+        x1:hidX, y1:hidYs[j], x2:outX, y2:outY,
+        stroke: weightColor(w), 'stroke-width': weightWidth(w), opacity: weightOpacity(w)
+      }));
+      labelLine(hidX, hidYs[j], outX, outY, w);
+    }
+
+    // input nodes
+    const inLabels = ['Temp', 'Pressure'];
+    inYs.forEach((y,i) => {
+      diagramSvg.appendChild(dEl('circle', {cx:inX, cy:y, r:11, fill:'#FBF8F2', stroke:'#4B5568', 'stroke-width':1.5}));
+      const t = dEl('text', {x:inX, y:y-18, 'text-anchor':'middle', 'font-size':'10', 'font-family':'ui-monospace, monospace', fill:'#4B5568'});
+      t.textContent = inLabels[i];
+      diagramSvg.appendChild(t);
+    });
+    // hidden nodes
+    hidYs.forEach((y,j) => {
+      diagramSvg.appendChild(dEl('circle', {cx:hidX, cy:y, r:11, fill:'#E9E2F2', stroke:'#7A5FA6', 'stroke-width':1.5}));
+      const t = dEl('text', {x:hidX, y:y+3.5, 'text-anchor':'middle', 'font-size':'9', 'font-family':'ui-monospace, monospace', fill:'#7A5FA6'});
+      t.textContent = 'h' + (j+1);
+      diagramSvg.appendChild(t);
+    });
+    // output node
+    diagramSvg.appendChild(dEl('circle', {cx:outX, cy:outY, r:13, fill:'#FBF8F2', stroke:'#1B2430', 'stroke-width':1.5}));
+    const outLabel = dEl('text', {x:outX, y:outY-22, 'text-anchor':'middle', 'font-size':'10', 'font-family':'ui-monospace, monospace', fill:'#1B2430'});
+    outLabel.textContent = 'Fail?';
+    diagramSvg.appendChild(outLabel);
+  }
+
+  function forward(x, y){
+    const h = new Array(H);
+    for(let j=0;j<H;j++){
+      const z = x*W1[0][j] + y*W1[1][j] + b1[j];
+      h[j] = Math.tanh(z);
+    }
+    let z2 = b2;
+    for(let j=0;j<H;j++) z2 += h[j]*W2[j];
+    const yhat = 1/(1+Math.exp(-z2));
+    return { h, yhat };
+  }
+
+  function trainEpochs(nEpochs, lr){
+    const N = DATA.length;
+    for(let e=0;e<nEpochs;e++){
+      const dW1 = [[...Array(H)].map(()=>0), [...Array(H)].map(()=>0)];
+      const db1 = new Array(H).fill(0);
+      const dW2 = new Array(H).fill(0);
+      let db2 = 0;
+      DATA.forEach(p => {
+        const { h, yhat } = forward(p.x, p.y);
+        const dz2 = yhat - p.label;
+        for(let j=0;j<H;j++) dW2[j] += h[j]*dz2;
+        db2 += dz2;
+        for(let j=0;j<H;j++){
+          const dh = dz2*W2[j];
+          const dz1 = dh*(1-h[j]*h[j]);
+          dW1[0][j] += p.x*dz1;
+          dW1[1][j] += p.y*dz1;
+          db1[j] += dz1;
+        }
+      });
+      for(let j=0;j<H;j++){
+        W2[j] -= lr*dW2[j]/N;
+        b1[j] -= lr*db1[j]/N;
+        W1[0][j] -= lr*dW1[0][j]/N;
+        W1[1][j] -= lr*dW1[1][j]/N;
+      }
+      b2 -= lr*db2/N;
+    }
+    trainedEpochs += nEpochs;
+  }
+
+  function evalNetwork(){
+    let loss = 0, correct = 0;
+    DATA.forEach(p => {
+      const { yhat } = forward(p.x, p.y);
+      const yc = clamp(yhat, 1e-7, 1-1e-7);
+      loss += -(p.label*Math.log(yc) + (1-p.label)*Math.log(1-yc));
+      const pred = yhat > 0.5 ? 1 : 0;
+      if(pred === p.label) correct++;
+    });
+    return { loss: loss/DATA.length, acc: correct/DATA.length };
+  }
+
+  // ---- rendering ----
+  function drawAxesAndPoints(){
+    ctx.clearRect(0,0,displayW,displayH);
+    // axes
+    ctx.strokeStyle = 'rgba(75,85,104,0.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(sx(DOM_MIN), sy(0)); ctx.lineTo(sx(DOM_MAX), sy(0));
+    ctx.moveTo(sx(0), sy(DOM_MIN)); ctx.lineTo(sx(0), sy(DOM_MAX));
+    ctx.stroke();
+  }
+
+  function drawPoints(){
+    DATA.forEach(p => {
+      ctx.beginPath();
+      ctx.fillStyle = p.label === 0 ? COLORS.pass : COLORS.fail;
+      ctx.strokeStyle = '#FBF8F2';
+      ctx.lineWidth = 1.2;
+      ctx.arc(sx(p.x), sy(p.y), 6, 0, Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+      if(p.noisy){
+        ctx.beginPath();
+        ctx.strokeStyle = '#1B2430';
+        ctx.lineWidth = 1.3;
+        ctx.setLineDash([2,2]);
+        ctx.arc(sx(p.x), sy(p.y), 10, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    });
+  }
+
+  function drawLineMode(){
+    drawAxesAndPoints();
+    const angleDeg = parseFloat(angleInput.value);
+    const offset = parseFloat(offsetInput.value);
+    const rad = angleDeg*Math.PI/180;
+    const nx = Math.cos(rad), ny = Math.sin(rad);
+
+    // draw the boundary line across the canvas: points where x*nx + y*ny = offset
+    const dx = -ny, dy = nx;
+    const cx = nx*offset, cy = ny*offset;
+    const L = 3;
+    const p1x = cx - dx*L, p1y = cy - dy*L;
+    const p2x = cx + dx*L, p2y = cy + dy*L;
+    ctx.strokeStyle = '#7A5FA6';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(sx(p1x), sy(p1y));
+    ctx.lineTo(sx(p2x), sy(p2y));
+    ctx.stroke();
+
+    drawPoints();
+
+    const acc = lineAccuracy(angleDeg, offset);
+    if(acc > bestAcc) bestAcc = acc;
+    currentLineAcc.textContent = (acc*100).toFixed(0) + '%';
+    bestLineAcc.textContent = (bestAcc*100).toFixed(0) + '%';
+    lineNote.textContent = bestAcc > 0.5
+      ? "Keep trying different angles and offsets \u2014 notice the ceiling. No single line gets close to separating this cleanly."
+      : '';
+  }
+
+  function drawNetworkMode(){
+    drawAxesAndPoints();
+    if(netTrainedOnce){
+      const res = 48;
+      const cellW = displayW/res, cellH = displayH/res;
+      for(let i=0;i<res;i++){
+        for(let j=0;j<res;j++){
+          const dataX = invX((i+0.5)*cellW);
+          const dataY = invY((j+0.5)*cellH);
+          const { yhat } = forward(dataX, dataY);
+          const t = yhat; // 0..1
+          const r = Math.round(62 + t*(178-62));
+          const g = Math.round(110 + t*(58-110));
+          const b = Math.round(117 + t*(50-117));
+          ctx.fillStyle = `rgba(${r},${g},${b},0.35)`;
+          ctx.fillRect(i*cellW, j*cellH, cellW+1, cellH+1);
+        }
+      }
+    }
+    drawPoints();
+
+    if(predictionPoint){
+      ctx.beginPath();
+      ctx.fillStyle = '#7A5FA6';
+      ctx.strokeStyle = '#1B2430';
+      ctx.lineWidth = 2;
+      const px = sx(predictionPoint.x), py = sy(predictionPoint.y);
+      const size = 9;
+      ctx.moveTo(px, py-size);
+      ctx.lineTo(px+size, py);
+      ctx.lineTo(px, py+size);
+      ctx.lineTo(px-size, py);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+
+  function render(){
+    if(mode === 'line') drawLineMode();
+    else drawNetworkMode();
+  }
+
+  // ---- mode toggle ----
+  function setMode(m){
+    mode = m;
+    lineModeBtn.classList.toggle('active', m==='line');
+    networkModeBtn.classList.toggle('active', m==='network');
+    lineControls.style.display = m==='line' ? 'block' : 'none';
+    networkControls.style.display = m==='network' ? 'block' : 'none';
+    render();
+  }
+  lineModeBtn.addEventListener('click', () => setMode('line'));
+  networkModeBtn.addEventListener('click', () => setMode('network'));
+
+  // ---- line controls ----
+  angleInput.addEventListener('input', () => {
+    angleVal.textContent = angleInput.value + '\u00b0';
+    render();
+  });
+  offsetInput.addEventListener('input', () => {
+    offsetVal.textContent = parseFloat(offsetInput.value).toFixed(2);
+    render();
+  });
+
+  // ---- network controls ----
+  function setNetControlsDisabled(disabled){
+    hiddenCountInput.disabled = disabled;
+    trainBtn.disabled = disabled;
+    resetNetBtn.disabled = disabled;
+  }
+
+  hiddenCountInput.addEventListener('input', () => {
+    hiddenCountVal.textContent = hiddenCountInput.value;
+    initNetwork();
+    if(mode === 'network') render();
+  });
+
+  resetNetBtn.addEventListener('click', () => {
+    initNetwork();
+    render();
+    statusRegion.textContent = 'Network weights reset.';
+  });
+
+  async function trainAnimated(){
+    if(animating) return;
+    animating = true;
+    setNetControlsDisabled(true);
+    if(parseInt(hiddenCountInput.value,10) !== H){
+      initNetwork();
+    }
+    const totalTicks = 40;
+    const epochsPerTick = 25;
+    const lr = 0.6;
+    for(let t=0;t<totalTicks;t++){
+      trainEpochs(epochsPerTick, lr);
+      const { loss, acc } = evalNetwork();
+      lossVal.textContent = loss.toFixed(3);
+      netAccVal.textContent = (acc*100).toFixed(0) + '%';
+      epochNote.textContent = `${trainedEpochs} epochs trained.`;
+      netTrainedOnce = true;
+      renderNetworkDiagram();
+      if(mode === 'network') render();
+      await new Promise(r => setTimeout(r, reduceMotion ? 0 : 40));
+    }
+    statusRegion.textContent = `Training finished after ${trainedEpochs} epochs. Accuracy: ${netAccVal.textContent}.`;
+    animating = false;
+    setNetControlsDisabled(false);
+  }
+  trainBtn.addEventListener('click', trainAnimated);
+
+  // ---- click to predict on canvas ----
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const px = (e.clientX - rect.left);
+    const py = (e.clientY - rect.top);
+    const dataX = invX(px), dataY = invY(py);
+    if(dataX < DOM_MIN || dataX > DOM_MAX || dataY < DOM_MIN || dataY > DOM_MAX) return;
+    predictTemp.value = dataX.toFixed(2);
+    predictPressure.value = dataY.toFixed(2);
+    runPrediction(dataX, dataY);
+  });
+
+  function runPrediction(x, y){
+    if(!netTrainedOnce){
+      predictedLabelEl.textContent = 'Train the network first';
+      predictedLabelEl.style.color = 'var(--ink-soft)';
+      predictSub.textContent = '';
+      predictResult.style.background = 'var(--grid)';
+      predictResult.classList.add('show');
+      return;
+    }
+    predictionPoint = { x, y };
+    if(mode === 'network') render();
+    const { yhat } = forward(x, y);
+    const label = yhat > 0.5 ? 'Fail' : 'Pass';
+    const color = yhat > 0.5 ? COLORS.fail : COLORS.pass;
+    predictedLabelEl.textContent = label;
+    predictedLabelEl.style.color = color;
+    predictSub.textContent = `Network confidence: ${(Math.max(yhat,1-yhat)*100).toFixed(0)}% (raw output ${yhat.toFixed(2)})`;
+    predictResult.style.background = color + '26';
+    predictResult.classList.add('show');
+    statusRegion.textContent = `Predicted ${label} for temp ${x.toFixed(2)}, pressure ${y.toFixed(2)}.`;
+  }
+
+  predictBtn.addEventListener('click', () => {
+    const x = parseFloat(predictTemp.value), y = parseFloat(predictPressure.value);
+    if(isNaN(x) || isNaN(y)) return;
+    runPrediction(clamp(x,DOM_MIN,DOM_MAX), clamp(y,DOM_MIN,DOM_MAX));
+  });
+
+  // ---- init ----
+  initNetwork();
+  resizeCanvas();
+  render();
+})();
+</script>
+</body>
+</html>
